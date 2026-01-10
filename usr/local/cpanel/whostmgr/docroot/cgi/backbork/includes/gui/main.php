@@ -104,9 +104,9 @@ if (!defined('BACKBORK_VERSION')) {
         <span>🚀 <strong>Update available!</strong> Version <span id="update-version"></span> is available on GitHub.</span>
         <div class="update-alert-actions">
             <?php if ($isRoot): ?>
-            <button type="button" class="btn btn-sm btn-primary" onclick="performUpdate()" id="btn-perform-update">Update Now</button>
+            <button type="button" class="btn btn-sm btn-primary" onclick="performUpdate()" id="btn-perform-update">Update Now!</button>
             <?php endif; ?>
-            <a href="https://github.com/The-Network-Crew/BackBork-KISS-for-WHM/releases/latest" target="_blank" class="btn btn-sm btn-secondary">View Release →</a>
+            <a href="https://github.com/The-Network-Crew/BackBork-KISS-for-WHM/" target="_blank" class="btn btn-sm btn-secondary">Open the Repo →</a>
         </div>
         <button type="button" class="update-alert-dismiss" onclick="dismissUpdateAlert()" title="Dismiss">✕</button>
     </div>
@@ -141,7 +141,7 @@ if (!defined('BACKBORK_VERSION')) {
          FOOTER: Version info, project links, and copyright
     ================================================================ -->
     <div class="backbork-footer">
-        <div><code title="<?php echo (defined('BACKBORK_COMMIT_DATE') && BACKBORK_COMMIT_DATE !== '') ? 'Committed: ' . htmlspecialchars(BACKBORK_COMMIT_DATE) : ''; ?>">v<?php echo BACKBORK_VERSION; ?>-<strong>RC</strong><?php if (defined('BACKBORK_COMMIT')): ?> (Commit: <?php echo (BACKBORK_COMMIT === 'unknown') ? 'Unofficial' : htmlspecialchars(BACKBORK_COMMIT); ?>)<?php endif; ?></code> <strong>&bull; <a href="https://backbork.com" target="_blank">Open-source DR</a> &bull; <a href="https://github.com/The-Network-Crew/BackBork-KISS-for-WHM" target="_blank">GitHub</a> &bull; <a href="https://github.com/The-Network-Crew/BackBork-KISS-for-WHM/issues/new/choose" target="_blank">Bug?</a></strong></div>
+        <div><code title="<?php echo (defined('BACKBORK_COMMIT_DATE') && BACKBORK_COMMIT_DATE !== '') ? 'Committed: ' . htmlspecialchars(BACKBORK_COMMIT_DATE) : ''; ?> AEST">v<?php echo BACKBORK_VERSION; ?>-<strong>RC</strong><?php if (defined('BACKBORK_COMMIT')): ?> (Commit: <?php echo (BACKBORK_COMMIT === 'unknown') ? 'Unofficial' : htmlspecialchars(BACKBORK_COMMIT); ?>)<?php endif; ?></code> <strong>&bull; <a href="https://backbork.com" target="_blank">Open-source DR</a> &bull; <a href="https://github.com/The-Network-Crew/BackBork-KISS-for-WHM" target="_blank">GitHub</a> &bull; <a href="https://github.com/The-Network-Crew/BackBork-KISS-for-WHM/issues/new/choose" target="_blank">Bug?</a></strong></div>
         <div><strong>&copy; <a href="https://tnc.works" target="_blank">The Network Crew Pty Ltd</a> &amp; <a href="https://velocityhost.com.au" target="_blank">Velocity Host Pty Ltd</a></strong> 💜</div>
     </div>
 </div>

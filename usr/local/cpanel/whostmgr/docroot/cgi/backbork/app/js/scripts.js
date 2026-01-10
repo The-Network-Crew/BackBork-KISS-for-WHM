@@ -1287,13 +1287,28 @@
             });
         }
 
-        // Show/hide day-of-week selector based on frequency
+        // Show/hide day-of-week selector based on frequency, and disable time for hourly
         const frequencySelect = document.getElementById('schedule-frequency');
         const dowRow = document.getElementById('schedule-dow-row');
+        const timeSelect = document.getElementById('schedule-time');
         if (frequencySelect && dowRow) {
-            frequencySelect.addEventListener('change', function() {
-                dowRow.style.display = this.value === 'weekly' ? 'flex' : 'none';
-            });
+            const updateScheduleFields = function() {
+                const isHourly = frequencySelect.value === 'hourly';
+                const isWeekly = frequencySelect.value === 'weekly';
+                
+                // Show day-of-week only for weekly
+                dowRow.style.display = isWeekly ? 'flex' : 'none';
+                
+                // Disable time selection for hourly (runs every hour)
+                if (timeSelect) {
+                    timeSelect.disabled = isHourly;
+                    timeSelect.style.opacity = isHourly ? '0.5' : '1';
+                    timeSelect.title = isHourly ? 'Hourly schedules run every hour' : '';
+                }
+            };
+            frequencySelect.addEventListener('change', updateScheduleFields);
+            // Run once on load
+            updateScheduleFields();
         }
         
         // Create Schedule
@@ -1446,12 +1461,17 @@
             });
         }
 
-        // Test notifications
+        // Test notifications - pass current field values so user doesn't need to save first
         const btnTestEmail = document.getElementById('btn-test-email');
         if (btnTestEmail) {
             btnTestEmail.addEventListener('click', function() {
-                apiCall('test_notification', { type: 'email' }).then(data => {
-                    alert(data.success ? 'Test email sent!' : 'Error: ' + data.message);
+                const emailValue = document.getElementById('notify-email')?.value || '';
+                if (!emailValue.trim()) {
+                    alert('Please enter an email address first.');
+                    return;
+                }
+                apiCall('test_notification', { type: 'email', email: emailValue }).then(data => {
+                    alert(data.success ? 'Test email sent!\n\nRemember to Save Settings at the bottom of the page if you want it committed!' : 'Error: ' + data.message);
                 }).catch(err => { console.error('Error test_notification email', err); alert('Failed to send test email: ' + (err.message || 'Unknown error')); });
             });
         }
@@ -1459,8 +1479,13 @@
         const btnTestSlack = document.getElementById('btn-test-slack');
         if (btnTestSlack) {
             btnTestSlack.addEventListener('click', function() {
-                apiCall('test_notification', { type: 'slack' }).then(data => {
-                    alert(data.success ? 'Test Slack message sent!' : 'Error: ' + data.message);
+                const slackValue = document.getElementById('notify-slack')?.value || '';
+                if (!slackValue.trim()) {
+                    alert('Please enter a Slack webhook URL first.');
+                    return;
+                }
+                apiCall('test_notification', { type: 'slack', webhook: slackValue }).then(data => {
+                    alert(data.success ? 'Test Slack message sent!\n\nRemember to Save Settings at the bottom of the page if you want it committed!' : 'Error: ' + data.message);
                 }).catch(err => { console.error('Error test_notification slack', err); alert('Failed to send test slack: ' + (err.message || 'Unknown error')); });
             });
         }
@@ -1630,14 +1655,18 @@
                         clearInterval(pollInterval);
                         pollInterval = null;
                         
-                        // Check final status
+                        // Check final status and update log appearance
                         if (logOutput.textContent.includes('BACKUP COMPLETED SUCCESSFULLY')) {
                             progressBar.style.width = '100%';
                             statusMessage.innerHTML = '<span class="status-badge status-success">✓ Backup completed successfully!</span>';
+                            logOutput.style.background = 'var(--terminal-success-bg)';
+                            logOutput.style.color = 'var(--terminal-success-text)';
                         } else if (logOutput.textContent.includes('BACKUP FAILED')) {
                             progressBar.style.width = '100%';
                             progressBar.style.background = 'var(--danger)';
                             statusMessage.innerHTML = '<span class="status-badge status-error">✗ Backup failed</span>';
+                            logOutput.style.background = 'var(--terminal-error-bg)';
+                            logOutput.style.color = 'var(--terminal-error-text)';
                         }
                         
                         // Refresh the queue
@@ -1680,6 +1709,8 @@
                     progressBar.style.width = '100%';
                     statusMessage.innerHTML = '<span class="status-badge status-success">✓ Backup completed successfully!</span>';
                     logOutput.textContent = data.log || 'Backup completed.';
+                    logOutput.style.background = 'var(--terminal-success-bg)';
+                    logOutput.style.color = 'var(--terminal-success-text)';
                 } else {
                     progressBar.style.width = '100%';
                     progressBar.style.background = 'var(--danger)';
@@ -1689,6 +1720,8 @@
                     if (data.errors && data.errors.length > 0) errorOutput += 'Errors:\n' + data.errors.join('\n') + '\n\n';
                     if (data.log) errorOutput += 'Log:\n' + data.log;
                     logOutput.textContent = errorOutput || 'Unknown error occurred.';
+                    logOutput.style.background = 'var(--terminal-error-bg)';
+                    logOutput.style.color = 'var(--terminal-error-text)';
                 }
                 loadQueue();
             }
@@ -1698,6 +1731,8 @@
             }
             statusMessage.innerHTML = '<span class="status-badge status-error">✗ Error</span>';
             logOutput.textContent = 'Error: ' + err.message;
+            logOutput.style.background = 'var(--terminal-error-bg)';
+            logOutput.style.color = 'var(--terminal-error-text)';
         });
     }
 
@@ -1750,14 +1785,18 @@
                         clearInterval(pollInterval);
                         pollInterval = null;
                         
-                        // Check final status
+                        // Check final status and update log appearance
                         if (logOutput.textContent.includes('RESTORE COMPLETED SUCCESSFULLY')) {
                             progressBar.style.width = '100%';
                             statusMessage.innerHTML = '<span class="status-badge status-success">✓ Restore completed successfully!</span>';
+                            logOutput.style.background = 'var(--terminal-success-bg)';
+                            logOutput.style.color = 'var(--terminal-success-text)';
                         } else if (logOutput.textContent.includes('RESTORE FAILED')) {
                             progressBar.style.width = '100%';
                             progressBar.style.background = 'var(--danger)';
                             statusMessage.innerHTML = '<span class="status-badge status-error">✗ Restore failed</span>';
+                            logOutput.style.background = 'var(--terminal-error-bg)';
+                            logOutput.style.color = 'var(--terminal-error-text)';
                         }
                     }
                 })
@@ -1800,11 +1839,15 @@
                 if (data.success) {
                     progressBar.style.width = '100%';
                     statusMessage.innerHTML = '<span class="status-badge status-success">✓ Restore completed successfully!</span>';
+                    logOutput.style.background = 'var(--terminal-success-bg)';
+                    logOutput.style.color = 'var(--terminal-success-text)';
                 } else {
                     progressBar.style.width = '100%';
                     progressBar.style.background = 'var(--danger)';
                     statusMessage.innerHTML = '<span class="status-badge status-error">✗ Restore failed</span>';
                     logOutput.textContent = data.message || 'Unknown error occurred.';
+                    logOutput.style.background = 'var(--terminal-error-bg)';
+                    logOutput.style.color = 'var(--terminal-error-text)';
                 }
             }
         }).catch(err => {
@@ -1813,6 +1856,8 @@
             }
             statusMessage.innerHTML = '<span class="status-badge status-error">✗ Error</span>';
             logOutput.textContent = 'Error: ' + err.message;
+            logOutput.style.background = 'var(--terminal-error-bg)';
+            logOutput.style.color = 'var(--terminal-error-text)';
         });
     }
 

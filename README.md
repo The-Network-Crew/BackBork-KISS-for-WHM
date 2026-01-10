@@ -73,11 +73,13 @@ cd BackBork-KISS-for-WHM
 
 ```bash
 cd /path/to/BackBork-KISS-for-WHM
-git pull
+git fetch origin && git reset --hard origin/main
 ./install.sh
 ```
 
-Alternatively, use the **Self-Update** feature in the GUI (Settings tab) for one-click updates.
+This fetches the latest from GitHub and resets your local copy to match exactly. Any local modifications will be discarded.
+
+Alternatively, use the **Self-Update** feature in the GUI (Settings tab) for one-click updates!
 
 > [!NOTE]
 > **Coming soon:** We're planning to add a CI system with automated tests closer to full release.

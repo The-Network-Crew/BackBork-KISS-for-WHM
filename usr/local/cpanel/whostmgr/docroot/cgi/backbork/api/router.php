@@ -1149,6 +1149,7 @@ switch ($action) {
     
     /**
      * Send a test notification (email or Slack)
+     * Accepts current field values so user can test before saving
      */
     case 'test_notification':
         $data = backbork_get_request_data();
@@ -1156,7 +1157,17 @@ switch ($action) {
         
         $config = new BackBorkConfig();
         $notify = new BackBorkNotify();
-        echo json_encode($notify->testNotification($type, $config->getUserConfig($currentUser)));
+        
+        // Get saved config as base, but override with passed values for testing
+        $testConfig = $config->getUserConfig($currentUser);
+        if ($type === 'email' && !empty($data['email'])) {
+            $testConfig['notify_email'] = $data['email'];
+        }
+        if ($type === 'slack' && !empty($data['webhook'])) {
+            $testConfig['notify_slack'] = $data['webhook'];
+        }
+        
+        echo json_encode($notify->testNotification($type, $testConfig));
         break;
     
     // ========================================================================

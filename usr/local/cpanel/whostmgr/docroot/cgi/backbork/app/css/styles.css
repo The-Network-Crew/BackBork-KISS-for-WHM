@@ -75,6 +75,10 @@
     --terminal-green: #4ade80;
     --terminal-yellow: #facc15;
     --terminal-red: #f87171;
+    --terminal-success-bg: #052e16;
+    --terminal-success-text: #86efac;
+    --terminal-error-bg: #450a0a;
+    --terminal-error-text: #fca5a5;
     
     /* Borders & Shadows */
     --border-light: #e2e8f0;
