@@ -72,10 +72,10 @@ if (isset($acl) && $acl instanceof BackBorkACL) {
                     </optgroup>
                     <optgroup label="Queue">
                         <option value="queue_add">Queue - Add</option>
+                        <option value="kill_all_jobs">Queue - Kill All</option>
                         <option value="queue_process">Queue - Process</option>
                         <option value="queue_cron_process">Queue - Process (Cron)</option>
                         <option value="queue_remove">Queue - Remove</option>
-                        
                     </optgroup>
                     <optgroup label="Schedules">
                         <option value="schedule_create">Schedule - Create</option>

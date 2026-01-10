@@ -506,8 +506,8 @@
 }
 
 .btn-process-queue {
-    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
-    color: white;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%) !important;
+    color: white !important;
     border: none;
     padding: 10px 20px;
     border-radius: 8px;
@@ -521,10 +521,17 @@
     box-shadow: 0 2px 4px rgba(5, 150, 105, 0.2);
 }
 
+.btn-process-queue:hover:not(:disabled),
+.btn-process-queue:focus,
+.btn-process-queue:active:not(:disabled) {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%) !important;
+    color: white !important;
+    outline: none;
+}
+
 .btn-process-queue:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
-    color: white;
 }
 
 .btn-process-queue:active:not(:disabled) {
@@ -534,18 +541,57 @@
 .btn-process-queue:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%) !important;
+    color: white !important;
 }
 
 .btn-process-queue .btn-icon {
     font-size: 12px;
 }
 
-.cron-hint {
-    color: var(--text-muted);
-    font-size: 12px;
-    display: flex;
+/* Kill All Jobs Button - Red danger variant */
+.btn-kill-queue {
+    background: linear-gradient(135deg, var(--error) 0%, #b91c1c 100%) !important;
+    color: white !important;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+}
+
+.btn-kill-queue:hover:not(:disabled),
+.btn-kill-queue:focus,
+.btn-kill-queue:active:not(:disabled) {
+    background: linear-gradient(135deg, var(--error) 0%, #b91c1c 100%) !important;
+    color: white !important;
+    outline: none;
+}
+
+.btn-kill-queue:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+.btn-kill-queue:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.btn-kill-queue:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    background: linear-gradient(135deg, var(--error) 0%, #b91c1c 100%) !important;
+    color: white !important;
+}
+
+.btn-kill-queue .btn-icon {
+    font-size: 12px;
 }
 
 .cron-info-box {
@@ -1069,6 +1115,13 @@
     width: fit-content;
 }
 
+.log-cell-meta .log-status-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+}
+
 .log-cell-type {
     min-width: 120px;
 }
@@ -1405,4 +1458,87 @@
     font-size: 36px;
     margin-bottom: 10px;
     opacity: 0.4;
+}
+
+/* View Log Link - styled as blue badge */
+.view-log-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    text-decoration: none;
+    background: var(--info-bg);
+    color: var(--info);
+}
+.view-log-link:hover {
+    filter: brightness(0.95);
+    text-decoration: none;
+}
+
+/* Log Lightbox */
+.log-lightbox-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.log-lightbox-content {
+    background: var(--surface);
+    border-radius: 12px;
+    width: 95%;
+    height: 90%;
+    max-width: 1400px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+}
+.log-lightbox-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+}
+.log-lightbox-title {
+    font-weight: 600;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+.log-lightbox-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: var(--text-muted);
+    line-height: 1;
+    padding: 0 8px;
+}
+.log-lightbox-close:hover {
+    color: var(--danger);
+}
+.log-lightbox-body {
+    flex: 1;
+    overflow: auto;
+    margin: 0;
+    padding: 20px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    background: var(--terminal-bg);
+    color: var(--terminal-text);
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }

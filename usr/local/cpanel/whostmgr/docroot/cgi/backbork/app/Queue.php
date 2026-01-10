@@ -749,4 +749,93 @@ class BackBorkQueue {
             unlink($cancelFile);
         }
     }
+    
+    /**
+     * Kill all jobs in queue and cancel all running jobs
+     * Root-only emergency function for clearing stuck queues
+     * Also kills any running pkgacct/restorepkg processes
+     * 
+     * @return array Result with counts of removed/cancelled jobs
+     */
+    public function killAllJobs() {
+        $queuedRemoved = 0;
+        $runningCancelled = 0;
+        $processesKilled = 0;
+        
+        // Remove all queued jobs
+        $queueFiles = glob(self::QUEUE_DIR . '/*.json');
+        foreach ($queueFiles as $file) {
+            if (unlink($file)) {
+                $queuedRemoved++;
+            }
+        }
+        
+        // Cancel all running jobs and remove their files
+        $runningFiles = glob(self::RUNNING_DIR . '/*.json');
+        foreach ($runningFiles as $file) {
+            $jobID = basename($file, '.json');
+            
+            // Create cancel marker (in case process is still checking)
+            if (!is_dir(self::CANCEL_DIR)) {
+                mkdir(self::CANCEL_DIR, 0700, true);
+            }
+            
+            $cancelFile = self::CANCEL_DIR . '/' . $jobID . '.cancel';
+            $cancelData = [
+                'job_id' => $jobID,
+                'requested_by' => 'root',
+                'requested_at' => date('Y-m-d H:i:s'),
+                'reason' => 'kill_all_jobs'
+            ];
+            file_put_contents($cancelFile, json_encode($cancelData, JSON_PRETTY_PRINT));
+            chmod($cancelFile, 0600);
+            
+            // Remove the running job file
+            unlink($file);
+            $runningCancelled++;
+        }
+        
+        // Kill any running pkgacct or restorepkg processes
+        // These are the cPanel utilities that actually perform backup/restore
+        $processesKilled = $this->killBackupProcesses();
+        
+        // Also remove the queue processor lock file if it exists
+        $lockFile = '/usr/local/cpanel/3rdparty/backbork/queue/queue.lock';
+        if (file_exists($lockFile)) {
+            unlink($lockFile);
+        }
+        
+        return [
+            'success' => true,
+            'queued_removed' => $queuedRemoved,
+            'running_cancelled' => $runningCancelled,
+            'processes_killed' => $processesKilled
+        ];
+    }
+    
+    /**
+     * Kill any running pkgacct or restorepkg processes
+     * Uses pkill to terminate backup/restore utilities
+     * 
+     * @return int Number of processes killed
+     */
+    private function killBackupProcesses() {
+        $killed = 0;
+        
+        // Find and kill pkgacct processes (backup)
+        exec('pgrep -f "pkgacct"', $pkgacctPids, $ret1);
+        if (!empty($pkgacctPids)) {
+            exec('pkill -9 -f "pkgacct"', $out, $ret);
+            $killed += count($pkgacctPids);
+        }
+        
+        // Find and kill restorepkg processes (restore)
+        exec('pgrep -f "restorepkg"', $restorepkgPids, $ret2);
+        if (!empty($restorepkgPids)) {
+            exec('pkill -9 -f "restorepkg"', $out, $ret);
+            $killed += count($restorepkgPids);
+        }
+        
+        return $killed;
+    }
 }

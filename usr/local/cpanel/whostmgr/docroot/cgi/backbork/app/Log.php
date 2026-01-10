@@ -100,8 +100,9 @@ class BackBorkLog {
      * @param bool $success Whether the operation succeeded
      * @param string $message Human-readable description
      * @param string $requestor Source IP/identifier (auto-detected if empty)
+     * @param string $jobID Optional job ID for linking to verbose logs
      */
-    public static function logEvent($user, $type, $items = [], $success = true, $message = '', $requestor = '') {
+    public static function logEvent($user, $type, $items = [], $success = true, $message = '', $requestor = '', $jobID = '') {
         // Ensure log directory exists
         if (!is_dir(self::LOG_DIR)) {
             mkdir(self::LOG_DIR, 0750, true);
@@ -125,6 +126,11 @@ class BackBorkLog {
             'message'   => $message,                       // Human-readable message
             'requestor' => $requestor                      // Source IP or 'cron'
         ];
+        
+        // Add job_id if provided (for linking to verbose logs)
+        if (!empty($jobID)) {
+            $entry['job_id'] = $jobID;
+        }
 
         // Write log entry as JSON line with file locking
         $line = json_encode($entry) . "\n";
@@ -223,7 +229,8 @@ class BackBorkLog {
                 'user' => $entry['user'] ?? '',
                 'requestor' => $entry['requestor'] ?? 'N/A',
                 'status' => $status,
-                'message' => $entry['message'] ?? ''
+                'message' => $entry['message'] ?? '',
+                'job_id' => $entry['job_id'] ?? ''
             ];
         }
         

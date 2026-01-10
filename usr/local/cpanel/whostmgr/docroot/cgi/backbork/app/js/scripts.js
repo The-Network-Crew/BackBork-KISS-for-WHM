@@ -715,6 +715,46 @@
         });
     }
 
+    // View verbose log in lightbox
+    window.viewVerboseLog = function(jobID) {
+        apiCall('get_verbose_log', { job_id: jobID }, 'GET').then(data => {
+            if (data.success && data.content) {
+                showLogLightbox(data.content, jobID);
+            } else {
+                alert('Log not found: ' + (data.message || 'Unknown error'));
+            }
+        }).catch(err => alert('Failed to load log: ' + err));
+    };
+
+    function showLogLightbox(content, title) {
+        // Remove existing lightbox if any
+        const existing = document.getElementById('log-lightbox');
+        if (existing) existing.remove();
+        
+        const lightbox = document.createElement('div');
+        lightbox.id = 'log-lightbox';
+        lightbox.className = 'log-lightbox-overlay';
+        lightbox.innerHTML = 
+            '<div class="log-lightbox-content">' +
+                '<div class="log-lightbox-header">' +
+                    '<span class="log-lightbox-title">' + title + '</span>' +
+                    '<button class="log-lightbox-close" onclick="document.getElementById(\'log-lightbox\').remove()">&times;</button>' +
+                '</div>' +
+                '<pre class="log-lightbox-body">' + escapeHtml(content) + '</pre>' +
+            '</div>';
+        
+        document.body.appendChild(lightbox);
+        lightbox.addEventListener('click', function(e) {
+            if (e.target === lightbox) lightbox.remove();
+        });
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     // Load Logs
     function loadLogs(page = 1) {
         currentLogPage = page;
@@ -725,11 +765,14 @@
             const tbody = document.getElementById('logs-tbody');
             
             if (data.logs && data.logs.length > 0) {
-                tbody.innerHTML = data.logs.map(log => 
-                    '<tr>' +
+                tbody.innerHTML = data.logs.map(log => {
+                    const viewLogLink = log.job_id ? '<a href="#" class="view-log-link" onclick="viewVerboseLog(\'' + log.job_id + '\'); return false;">Verbose</a>' : '';
+                    return '<tr>' +
                         '<td><div class="log-cell-meta">' +
                             '<span class="log-timestamp">' + log.timestamp + '</span>' +
-                            '<span class="status-badge status-' + log.status + '">' + log.status + '</span>' +
+                            '<div class="log-status-row">' +
+                                '<span class="status-badge status-' + log.status + '">' + log.status + '</span>' + viewLogLink +
+                            '</div>' +
                         '</div></td>' +
                         '<td><div class="log-cell-type">' +
                             '<span class="log-type">' + log.type + '</span>' +
@@ -737,8 +780,8 @@
                         '</div></td>' +
                         '<td class="log-cell-account"><pre class="log-details">' + (log.account || 'N/A') + '</pre></td>' +
                         '<td class="log-cell-details"><pre class="log-details">' + (log.message || '') + '</pre></td>' +
-                    '</tr>'
-                ).join('');
+                    '</tr>';
+                }).join('');
                 
                 // Pagination
                 renderPagination(data.total_pages, page);
@@ -1550,7 +1593,7 @@
         const btnProcessQueue = document.getElementById('btn-process-queue');
         if (btnProcessQueue) {
             btnProcessQueue.addEventListener('click', function() {
-                if (!confirm('Process queue now? This will also check schedules and run queued jobs.')) return;
+                if (!confirm('Process queue now?\n\nThis will check schedules and run any queued jobs.\n\nNote: Queue runs automatically every 5 minutes.')) return;
                 
                 btnProcessQueue.disabled = true;
                 btnProcessQueue.innerHTML = '<span class="loading-spinner-small"></span> Processing...';
@@ -1591,6 +1634,37 @@
                 }).finally(() => {
                     btnProcessQueue.disabled = false;
                     btnProcessQueue.innerHTML = '▶ Process Queue Now';
+                });
+            });
+        }
+        
+        // Kill All Jobs button
+        const btnKillQueue = document.getElementById('btn-kill-queue');
+        if (btnKillQueue) {
+            btnKillQueue.addEventListener('click', function() {
+                if (!confirm('Are you sure you want to kill all items in-queue?\n\nThis is harsher than cancelling below, please use with caution if you have a stuck process, etc.')) return;
+                
+                btnKillQueue.disabled = true;
+                btnKillQueue.innerHTML = '<span class="loading-spinner-small"></span> Killing...';
+                
+                apiCall('kill_all_jobs', {}, 'POST').then(data => {
+                    loadQueue();
+                    refreshStatus();
+                    
+                    if (data.success) {
+                        let msg = 'Killed ' + (data.queued_removed || 0) + ' queued and ' + (data.running_cancelled || 0) + ' running jobs.';
+                        if (data.processes_killed > 0) {
+                            msg += '\n\nTerminated ' + data.processes_killed + ' stuck process(es).';
+                        }
+                        alert(msg);
+                    } else {
+                        alert('Error: ' + (data.message || 'Unknown error'));
+                    }
+                }).catch(err => {
+                    alert('Error killing jobs: ' + (err.message || 'Unknown error'));
+                }).finally(() => {
+                    btnKillQueue.disabled = false;
+                    btnKillQueue.innerHTML = '<span class="btn-icon">☠️</span> Kill All Jobs';
                 });
             });
         }

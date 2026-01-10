@@ -37,14 +37,16 @@
         <?php if ($isRoot): ?>
             <!-- Root-only: Manual queue processing trigger -->
             <button id="btn-process-queue" class="btn btn-process-queue">
-                <span class="btn-icon">▶</span> Process Queue Now
+                <span class="btn-icon">▶</span> Process Queue
             </button>
-            <span class="cron-hint">Automatically runs every 5 minutes via cron</span>
+            <button id="btn-kill-queue" class="btn btn-kill-queue">
+                <span class="btn-icon">☠️</span> Kill All Jobs
+            </button>
         <?php else: ?>
             <!-- Reseller view: Informational message about cron processing -->
             <div class="cron-info-box">
                 <span class="info-icon">ℹ️</span>
-                Queue processing runs automatically every 5 minutes. Manual processing requires root access.
+                <strong>Queue processing runs automatically every 5 minutes.</strong> Manual processing requires root access.
             </div>
         <?php endif; ?>
     </div>

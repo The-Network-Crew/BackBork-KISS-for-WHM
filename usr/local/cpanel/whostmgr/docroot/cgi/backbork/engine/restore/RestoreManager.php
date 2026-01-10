@@ -181,7 +181,7 @@ class BackBorkRestoreManager {
             $durationStr = $this->formatDuration(microtime(true) - $restoreStartTime);
             $logType = $isRemote ? 'restore_remote' : 'restore_local';
             $destInfo = $isRemote ? 'Host: ' . ($destination['host'] ?? $destName) : 'Destination: ' . $destName;
-            $this->logOperation($user, $logType, ["{$account} ({$durationStr})"], false, $destInfo . "\nRetrieval failed: " . ($retrieveResult['message'] ?? 'Unknown error'));
+            $this->logOperation($user, $logType, ["{$account} ({$durationStr})"], false, $destInfo . "\nRetrieval failed: " . ($retrieveResult['message'] ?? 'Unknown error'), $restoreID);
             $retrieveResult['restore_id'] = $restoreID;
             $retrieveResult['log_file'] = $logFile;
             return $retrieveResult;
@@ -218,7 +218,7 @@ class BackBorkRestoreManager {
             $durationStr = $this->formatDuration(microtime(true) - $restoreStartTime);
             $logType = $isRemote ? 'restore_remote' : 'restore_local';
             $destInfo = $isRemote ? 'Host: ' . ($destination['host'] ?? $destName) : 'Destination: ' . $destName;
-            $this->logOperation($user, $logType, ["{$account} ({$durationStr})"], false, $destInfo . "\nInvalid backup file: " . $verification['message']);
+            $this->logOperation($user, $logType, ["{$account} ({$durationStr})"], false, $destInfo . "\nInvalid backup file: " . $verification['message'], $restoreID);
             return ['success' => false, 'message' => 'Invalid backup file: ' . $verification['message'], 'restore_id' => $restoreID, 'log_file' => $logFile];
         }
         
@@ -292,7 +292,7 @@ class BackBorkRestoreManager {
             $durationStr = $this->formatDuration(microtime(true) - $restoreStartTime);
             $logType = $isRemote ? 'restore_remote' : 'restore_local';
             $destInfo = $isRemote ? 'Host: ' . ($destination['host'] ?? $destName) : 'Destination: ' . $destName;
-            $this->logOperation($user, $logType, ["{$account} ({$durationStr})"], false, $destInfo . "\n" . $result['message']);
+            $this->logOperation($user, $logType, ["{$account} ({$durationStr})"], false, $destInfo . "\n" . $result['message'], $restoreID);
             $result['restore_id'] = $restoreID;
             $result['log_file'] = $logFile;
             return $result;
@@ -333,7 +333,7 @@ class BackBorkRestoreManager {
         $durationStr = $this->formatDuration(microtime(true) - $restoreStartTime);
         $logType = $isRemote ? 'restore_remote' : 'restore_local';
         $destInfo = $isRemote ? 'Host: ' . ($destination['host'] ?? $destName) : 'Destination: ' . $destName;
-        $this->logOperation($user, $logType, ["{$account} ({$durationStr})"], $result['success'], $destInfo . "\n" . $result['message']);
+        $this->logOperation($user, $logType, ["{$account} ({$durationStr})"], $result['success'], $destInfo . "\n" . $result['message'], $restoreID);
         
         // ====================================================================
         // STEP 8: Send completion notification
@@ -829,15 +829,16 @@ class BackBorkRestoreManager {
      * @param array $accounts Affected accounts (array of usernames)
      * @param bool $success Whether operation succeeded
      * @param string $message Details/error message
+     * @param string $jobID Optional job ID for linking to verbose logs
      */
-    private function logOperation($user, $type, $accounts, $success, $message) {
+    private function logOperation($user, $type, $accounts, $success, $message, $jobID = '') {
         // Only log if BackBorkLog class is available
         if (class_exists('BackBorkLog')) {
             // Use override if set, otherwise detect requestor
             $logRequestor = $this->getRequestor();
             
             // Log event through centralised logging
-            BackBorkLog::logEvent($user, $type === 'restore' ? 'restore' : $type, $accounts, $success, $message, $logRequestor);
+            BackBorkLog::logEvent($user, $type === 'restore' ? 'restore' : $type, $accounts, $success, $message, $logRequestor, $jobID);
         }
     }
     

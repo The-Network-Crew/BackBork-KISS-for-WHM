@@ -299,7 +299,7 @@ class BackBorkBackupManager {
         $logMessage = $destInfo . "\n" . implode("\n", $logMessages);
         
         BackBorkConfig::debugLog('createBackup: Logging operation for user=' . $user . ' success=' . ($success ? 'true' : 'false') . ' accounts=' . implode(',', $accounts));
-        $this->logOperation($user, $logType, $accountsWithDuration, $success, $logMessage);
+        $this->logOperation($user, $logType, $accountsWithDuration, $success, $logMessage, $backupID);
         
         // Check notification preferences
         $notifySuccess = !empty($userConfig['notify_backup_success']);
@@ -719,15 +719,16 @@ class BackBorkBackupManager {
      * @param array $accounts Affected accounts (array of usernames)
      * @param bool $success Whether operation succeeded
      * @param string $message Details/error message for the log entry
+     * @param string $jobID Optional job ID for linking to verbose logs
      */
-    public function logOperation($user, $type, $accounts, $success, $message) {
+    public function logOperation($user, $type, $accounts, $success, $message, $jobID = '') {
         // Only log if BackBorkLog class is available
         if (class_exists('BackBorkLog')) {
             // Use override if set, otherwise detect requestor
             $logRequestor = $this->getRequestor();
             
             // Log event through centralised logging
-            BackBorkLog::logEvent($user, $type === 'backup' ? 'backup' : $type, $accounts, $success, $message, $logRequestor);
+            BackBorkLog::logEvent($user, $type === 'backup' ? 'backup' : $type, $accounts, $success, $message, $logRequestor, $jobID);
         }
     }
     

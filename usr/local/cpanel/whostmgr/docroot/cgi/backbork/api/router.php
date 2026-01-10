@@ -597,6 +597,32 @@ switch ($action) {
         break;
     
     /**
+     * Kill all queued and running jobs (root only)
+     * Emergency function for clearing stuck queues and killing processes
+     */
+    case 'kill_all_jobs':
+        // Security: Only root can kill all jobs
+        if (!$isRoot) {
+            echo json_encode(['success' => false, 'message' => 'Access denied: requires root']);
+            break;
+        }
+        
+        $queue = new BackBorkQueue();
+        $result = $queue->killAllJobs();
+        
+        // Log the action
+        if (class_exists('BackBorkLog')) {
+            $logMsg = 'Killed ' . $result['queued_removed'] . ' queued, ' . $result['running_cancelled'] . ' running';
+            if ($result['processes_killed'] > 0) {
+                $logMsg .= ', terminated ' . $result['processes_killed'] . ' process(es)';
+            }
+            BackBorkLog::logEvent($currentUser, 'kill_all_jobs', [], true, $logMsg, $requestor);
+        }
+        
+        echo json_encode($result);
+        break;
+    
+    /**
      * Get running job status
      */
     case 'get_status':
@@ -1192,6 +1218,30 @@ switch ($action) {
             $backupManager = new BackBorkBackupManager();
             echo json_encode($backupManager->getLogs($currentUser, $isRoot, $page, $limit, $filter));
         }
+        break;
+    
+    /**
+     * Get verbose log content for viewing from logs tab
+     * Returns full content of backup_* or restore_* log files
+     */
+    case 'get_verbose_log':
+        $jobID = isset($_GET['job_id']) ? $_GET['job_id'] : '';
+        
+        // Validate job_id format (backup_* or restore_*)
+        if (!preg_match('/^(backup|restore)_[0-9]+_[a-f0-9]+$/', $jobID)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid job ID format']);
+            break;
+        }
+        
+        $logFile = '/usr/local/cpanel/3rdparty/backbork/logs/' . $jobID . '.log';
+        
+        if (!file_exists($logFile)) {
+            echo json_encode(['success' => false, 'message' => 'Log file not found']);
+            break;
+        }
+        
+        $content = file_get_contents($logFile);
+        echo json_encode(['success' => true, 'content' => $content]);
         break;
     
     /**
