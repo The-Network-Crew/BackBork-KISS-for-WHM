@@ -266,7 +266,7 @@ perform_update() {
     # Execute install.sh and capture output
     if ! bash install.sh >> "${LOG_FILE}" 2>&1; then
         log_error "Installation script failed"
-        send_notifications "failure" "${NEW_VERSION}" "Installation script returned an error"
+        send_notifications "failure" "${new_version}" "Installation script returned an error"
         exit 1
     fi
     
@@ -297,6 +297,7 @@ perform_update() {
     log "New version: ${new_version}"
     log "=========================================="
     
+
     # Send success notifications
     send_notifications "success" "${new_version}" ""
     

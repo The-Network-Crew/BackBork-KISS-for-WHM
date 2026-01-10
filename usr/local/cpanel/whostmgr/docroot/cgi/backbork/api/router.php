@@ -320,8 +320,14 @@ switch ($action) {
         $notifyEmail = $userConfig['notify_email'] ?? '';
         $slackWebhook = $userConfig['slack_webhook'] ?? '';
         
-        // Log the update initiation
-        BackBorkLog::logEvent($currentUser, 'update_started', ['version' => $currentVersion, 'initiated_by' => $currentUser], true, 'Self-update initiated', $requestor);
+        // Fetch remote version for logging
+        $ctx = stream_context_create(['http' => ['timeout' => 5]]);
+        $remoteUrl = 'https://raw.githubusercontent.com/The-Network-Crew/BackBork-KISS-for-WHM/refs/heads/main/version';
+        $remoteVersion = @file_get_contents($remoteUrl, false, $ctx);
+        $remoteVersion = $remoteVersion !== false ? trim($remoteVersion) : 'latest';
+        
+        // Log the update initiation with version info
+        BackBorkLog::logEvent($currentUser, 'update_started', ["Version {$currentVersion} to {$remoteVersion}"], true, 'Self-update initiated', $requestor);
         
         // Initialise update log
         $timestamp = date('Y-m-d H:i:s');

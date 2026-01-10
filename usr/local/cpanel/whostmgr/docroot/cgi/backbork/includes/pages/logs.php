@@ -87,6 +87,7 @@ if (isset($acl) && $acl instanceof BackBorkACL) {
                         <option value="delete">File - Delete</option>
                         <option value="prune">Prune - All</option>
                         <option value="daily_summary">Daily Summary</option>
+                        <option value="update_started">Update - Started</option>
                     </optgroup>
                     <optgroup label="Status">
                         <option value="error">Errors (Only)</option>
