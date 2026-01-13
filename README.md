@@ -2,6 +2,8 @@
 
 ### Disaster Recovery for WHM — The Simple Way
 
+<img src="_images/logo-wide.png">
+
 > [!NOTE]
 > **Release Candidate** (v1.4.x) — Feedback is critical to BackBork's world domination plans.
 > 

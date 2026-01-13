@@ -117,7 +117,7 @@
             if (data.success) {
                 // Show success message
                 if (alertEl) {
-                    alertEl.innerHTML = '<span>🔄 <strong>Update in progress!</strong> You will be notified by email/Slack when complete. The page may need to be refreshed after update.</span>' +
+                    alertEl.innerHTML = '<span>🔄 <strong>Update in progress!</strong> You will be notified by email/Slack when complete.<br>Please ensure you shift-refresh BackBork following the update completing, to ensure up-to-date JavaScript.</span>' +
                         '<button type="button" class="update-alert-dismiss" onclick="dismissUpdateAlert()" title="Dismiss">✕</button>';
                     alertEl.classList.add('update-in-progress');
                 }

@@ -896,18 +896,24 @@ class BackBorkQueueProcessor {
             
             // Log pruning to GUI Log for this schedule (only if something pruned)
             if ($schedulePruned > 0) {
-                $fileList = implode(', ', array_slice($prunedFiles, 0, 10));
-                if (count($prunedFiles) > 10) {
-                    $fileList .= ' ... and ' . (count($prunedFiles) - 10) . ' more';
-                }
-                // Include destination info (name for local, hostname for remote)
+                // Build schedule attributes for Account/Config column
                 $destType = strtolower($destination['type'] ?? 'local');
-                $destInfo = ($destType === 'local') 
-                    ? 'Destination: ' . ($destination['name'] ?? 'Local')
-                    : 'Host: ' . ($destination['host'] ?? $destination['name'] ?? 'Remote');
-                $logMsg = "{$destInfo}\nPruned {$schedulePruned} backup(s) for schedule '{$scheduleName}' (retention: {$retentionCount}). Deleted: {$fileList}";
+                $destName = ($destType === 'local') 
+                    ? ($destination['name'] ?? 'Local')
+                    : ($destination['host'] ?? $destination['name'] ?? 'Remote');
+                $intervalName = ucfirst($schedule['schedule'] ?? 'Unknown');
+                $scheduleAttrs = [
+                    "Interval: {$intervalName}",
+                    "Destination: {$destName}",
+                    "Retention: {$retentionCount}",
+                    "Schedule: {$scheduleID}"
+                ];
+                
+                // Build file list for Details/Output column (one per line)
+                $fileListFormatted = "Deleted:\n" . implode("\n", $prunedFiles);
+                
                 $logType = ($destType === 'local') ? 'prune_local' : 'prune_remote';
-                BackBorkLog::logEvent($scheduleUser, $logType, $prunedFiles, true, $logMsg, 'cron');
+                BackBorkLog::logEvent($scheduleUser, $logType, $scheduleAttrs, true, $fileListFormatted, 'cron');
             }
         }
         

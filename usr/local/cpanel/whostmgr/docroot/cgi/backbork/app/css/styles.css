@@ -126,6 +126,11 @@
 .backbork-header h1 .shield-icon {
     font-size: 22px;
 }
+.backbork-header h1 .header-logo {
+    height: 55px;
+    width: auto;
+    vertical-align: middle;
+}
 
 /* Status Monitor - Terminal Style */
 .status-monitor {

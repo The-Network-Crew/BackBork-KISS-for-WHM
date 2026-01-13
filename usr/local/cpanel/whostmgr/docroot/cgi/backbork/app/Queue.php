@@ -200,7 +200,11 @@ class BackBorkQueue {
                     : (isset($_SERVER['REMOTE_ADDR']) 
                         ? $_SERVER['REMOTE_ADDR'] 
                         : (BackBorkBootstrap::isCLI() ? 'cron' : 'local'));
-                BackBorkLog::logEvent($user, 'schedule_create', $accounts, true, 'Schedule created', $requestor);
+                // Build clean attribute list for Details column
+                $scheduleAttrs = "Interval: " . ucfirst($schedule) . "\n" .
+                                 "Destination: " . $destinationName . "\n" .
+                                 "Retention: " . $job['retention'];
+                BackBorkLog::logEvent($user, 'schedule_create', $accounts, true, $scheduleAttrs, $requestor);
             }
 
             return [
