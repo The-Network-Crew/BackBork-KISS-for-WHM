@@ -326,6 +326,7 @@ php router.php --action=create_schedule \
 | `get_destinations` | List configured backup destinations |
 | `queue_backup` | Add accounts to backup queue |
 | `create_schedule` | Create automated backup schedule |
+| `update_schedule` | Update an existing schedule |
 | `get_queue` | View queue, running jobs, and schedules |
 | `get_logs` | Retrieve audit logs |
 

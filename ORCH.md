@@ -502,6 +502,7 @@ For complete API documentation, see [API.md](API.md).
 | `save_global_config` | Save global settings (root only) |
 | `get_schedules` | List all schedules |
 | `create_schedule` | Create new schedule |
+| `update_schedule` | Update existing schedule |
 | `delete_schedule` | Delete schedule |
 | `create_backup` | Trigger immediate backup |
 | `validate_destination` | Test destination connectivity |

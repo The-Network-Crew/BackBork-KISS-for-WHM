@@ -968,6 +968,7 @@ All require WHM authentication.
 | `?action=list_backups` | GET | List backup files for an account at a destination |
 | `?action=delete_backup` | POST | Delete a backup file (local destinations only) |
 | `?action=create_schedule` | POST | Create schedule |
+| `?action=update_schedule` | POST | Update schedule |
 | `?action=delete_schedule` | POST | Delete schedule |
 | `?action=process_queue` | POST | Manually trigger queue processing (also run by cron) |
 | `?action=restore_backup` | POST | Start restore |

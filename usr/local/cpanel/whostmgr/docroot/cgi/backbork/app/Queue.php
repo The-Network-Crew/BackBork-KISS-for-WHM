@@ -435,6 +435,147 @@ class BackBorkQueue {
         return ['success' => false, 'message' => 'Job not found'];
     }
     
+    /**
+     * Update an existing schedule with new settings
+     * 
+     * @param string $jobID Schedule ID to update
+     * @param array $updates Associative array of fields to update:
+     *                       - accounts: Array of account usernames
+     *                       - destination: Destination ID
+     *                       - schedule: Frequency (hourly, daily, weekly, monthly)
+     *                       - retention: Days to keep backups
+     *                       - preferred_time: Hour to run (0-23)
+     *                       - day_of_week: Day for weekly (0=Sun, 6=Sat)
+     *                       - all_accounts: Boolean for dynamic mode
+     * @param string $user Current authenticated user
+     * @param bool $isRoot Whether user has root privileges
+     * @return array Result with success status and message
+     */
+    public function updateSchedule($jobID, $updates, $user, $isRoot) {
+        $scheduleFile = self::SCHEDULES_DIR . '/' . $jobID . '.json';
+        
+        // Check if schedule exists
+        if (!file_exists($scheduleFile)) {
+            return ['success' => false, 'message' => 'Schedule not found'];
+        }
+        
+        // Load existing schedule
+        $schedule = json_decode(file_get_contents($scheduleFile), true);
+        if (!$schedule) {
+            return ['success' => false, 'message' => 'Failed to read schedule'];
+        }
+        
+        // Security: Non-root can only update their own schedules
+        if (!$isRoot && $schedule['user'] !== $user) {
+            return ['success' => false, 'message' => 'Access denied'];
+        }
+        
+        // Track what changed for logging
+        $changes = [];
+        
+        // Update accounts if provided
+        if (isset($updates['accounts'])) {
+            $allAccounts = isset($updates['all_accounts']) ? (bool)$updates['all_accounts'] : false;
+            if ($allAccounts || (is_array($updates['accounts']) && in_array('*', $updates['accounts']))) {
+                $schedule['accounts'] = ['*'];
+                $schedule['all_accounts'] = true;
+                $changes[] = 'accounts: All Accounts';
+            } else {
+                $schedule['accounts'] = $updates['accounts'];
+                $schedule['all_accounts'] = false;
+                $changes[] = 'accounts: ' . count($updates['accounts']) . ' selected';
+            }
+        }
+        
+        // Update destination if provided
+        if (isset($updates['destination']) && $updates['destination'] !== $schedule['destination']) {
+            $parser = new BackBorkDestinationsParser();
+            $dest = $parser->getDestinationByID($updates['destination']);
+            if (!$dest) {
+                return ['success' => false, 'message' => 'Invalid destination'];
+            }
+            if (empty($dest['enabled'])) {
+                return ['success' => false, 'message' => 'Cannot use disabled destination'];
+            }
+            $schedule['destination'] = $updates['destination'];
+            $schedule['destination_name'] = !empty($dest['name']) ? $dest['name'] : $updates['destination'];
+            $changes[] = 'destination: ' . $schedule['destination_name'];
+        }
+        
+        // Update schedule frequency if provided
+        $frequencyChanged = false;
+        if (isset($updates['schedule']) && in_array($updates['schedule'], ['hourly', 'daily', 'weekly', 'monthly'])) {
+            if ($updates['schedule'] !== $schedule['schedule']) {
+                $schedule['schedule'] = $updates['schedule'];
+                $frequencyChanged = true;
+                $changes[] = 'frequency: ' . ucfirst($updates['schedule']);
+            }
+        }
+        
+        // Update retention if provided
+        if (isset($updates['retention'])) {
+            $schedule['retention'] = (int)$updates['retention'];
+            $changes[] = 'retention: ' . $schedule['retention'];
+        }
+        
+        // Update preferred_time if provided
+        $timeChanged = false;
+        if (isset($updates['preferred_time'])) {
+            $newTime = (int)$updates['preferred_time'];
+            if ($newTime >= 0 && $newTime <= 23 && $newTime !== $schedule['preferred_time']) {
+                $schedule['preferred_time'] = $newTime;
+                $timeChanged = true;
+                $changes[] = 'time: ' . sprintf('%02d:00', $newTime);
+            }
+        }
+        
+        // Update day_of_week if provided (for weekly schedules)
+        $dowChanged = false;
+        if (isset($updates['day_of_week'])) {
+            $newDow = (int)$updates['day_of_week'];
+            if ($newDow >= 0 && $newDow <= 6 && $newDow !== ($schedule['day_of_week'] ?? 0)) {
+                $schedule['day_of_week'] = $newDow;
+                $dowChanged = true;
+                $days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                $changes[] = 'day: ' . $days[$newDow];
+            }
+        }
+        
+        // Recalculate next_run if timing-related fields changed
+        if ($frequencyChanged || $timeChanged || $dowChanged) {
+            $schedule['next_run'] = $this->calculateNextRun(
+                $schedule['schedule'],
+                $schedule['preferred_time'],
+                $schedule['day_of_week'] ?? 0
+            );
+        }
+        
+        // Update modification timestamp
+        $schedule['updated_at'] = date('Y-m-d H:i:s');
+        
+        // Save updated schedule
+        if (file_put_contents($scheduleFile, json_encode($schedule, JSON_PRETTY_PRINT)) === false) {
+            return ['success' => false, 'message' => 'Failed to save schedule'];
+        }
+        chmod($scheduleFile, 0600);
+        
+        // Log the update for audit trail
+        if (class_exists('BackBorkLog') && !empty($changes)) {
+            $requestor = isset($_SERVER['HTTP_X_FORWARDED_FOR']) 
+                ? explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0] 
+                : (isset($_SERVER['REMOTE_ADDR']) 
+                    ? $_SERVER['REMOTE_ADDR'] 
+                    : (BackBorkBootstrap::isCLI() ? 'cron' : 'local'));
+            BackBorkLog::logEvent($user, 'schedule_update', [$jobID], true, implode("\n", $changes), $requestor);
+        }
+        
+        return [
+            'success' => true,
+            'message' => 'Schedule updated',
+            'schedule' => $schedule
+        ];
+    }
+    
     // ========================================================================
     // JOB STATUS
     // ========================================================================

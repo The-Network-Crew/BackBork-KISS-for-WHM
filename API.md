@@ -867,14 +867,55 @@ Creates a new backup schedule.
 }
 ```
 
-#### `POST ?action=update_schedule` (Not implemented)
+#### `POST ?action=update_schedule`
 
-This API action is not currently implemented. To update a schedule you can either:
+Updates an existing schedule. Users can only update their own schedules unless root.
 
-- Delete the schedule (`delete_schedule`) and create a new one (`create_schedule`), or
-- Edit the schedule file in the schedules directory directly on the server (advanced / not recommended).
+**Request:**
+```json
+{
+  "job_id": "sched_abc123",
+  "destination": "SFTP_Backup",
+  "schedule": "weekly",
+  "retention": 14,
+  "preferred_time": 3,
+  "day_of_week": 0,
+  "accounts": ["user1", "user2"],
+  "all_accounts": false
+}
+```
 
-If/when `update_schedule` is implemented in the router, it will accept a `job_id` and a JSON body describing the fields to change (e.g., `enabled`, `frequency`, `hour`, `minute`, `retention`).
+| Field | Type | Description |
+|-------|------|-------------|
+| `job_id` | string | **Required.** The schedule ID to update |
+| `destination` | string | Destination name from `deploy_destinations.yml` |
+| `schedule` | string | `daily` or `weekly` |
+| `retention` | integer | Days to retain backups (0 = unlimited) |
+| `preferred_time` | integer | Hour of day to run (0-23) |
+| `day_of_week` | integer | Day for weekly schedules (0=Sunday, 1=Monday, etc.) |
+| `accounts` | array | Account usernames to back up |
+| `all_accounts` | boolean | If `true`, backs up all accessible accounts |
+
+> [!NOTE]
+> Only include fields you want to change. Omitted fields retain their current values.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Schedule updated successfully",
+  "schedule": { ... }
+}
+```
+
+**CLI Example:**
+```bash
+php router.php --action=update_schedule \
+  --data='{"job_id":"sched_abc123","retention":7,"schedule":"weekly","day_of_week":6}'
+```
+
+> [!TIP]
+> You can also edit schedules via the WHM GUI: BackBork → Schedule → Edit button.
 
 #### `POST ?action=delete_schedule`
 

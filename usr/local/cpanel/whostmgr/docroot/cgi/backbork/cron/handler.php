@@ -211,6 +211,19 @@ function performHealthCheck() {
     // Check last run time to detect stuck/failed cron
     if (file_exists(CRON_LAST_RUN_FILE)) {
         $lastRun = (int)file_get_contents(CRON_LAST_RUN_FILE);
+        
+        // Sanity check: if lastRun is 0 or very old (before 2020), file is likely corrupted
+        // The file was just written at line 67, so this indicates a problem
+        if ($lastRun < 1577836800) { // 2020-01-01
+            BackBorkConfig::debugLog('CRON: cron_last_run file contains invalid timestamp: ' . $lastRun);
+            // Don't alert on this edge case - the file will be rewritten on next run
+            // Just clear any stale health notification
+            if (file_exists($healthFile)) {
+                unlink($healthFile);
+            }
+            return;
+        }
+        
         $timeSinceLastRun = time() - $lastRun;
         
         // Alert if gap exceeds expected interval
@@ -259,7 +272,7 @@ function sendHealthAlert($issue, $healthFile, $lastRun = null) {
     // Send via unified root notification system
     $sent = sendRootNotification('cron_health', 'notify_cron_errors', [
         'issue' => $issue,
-        'last_run' => $lastRun ? date('Y-m-d H:i:s T', $lastRun) : 'Never'
+        'last_run' => $lastRun !== null ? date('Y-m-d H:i:s T', $lastRun) : 'Never'
     ]);
     
     // Record notification timestamp to prevent re-alerting too soon

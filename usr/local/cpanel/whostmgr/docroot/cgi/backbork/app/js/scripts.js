@@ -700,9 +700,12 @@
             
             if (data.schedules && data.schedules.length > 0) {
                 tbody.innerHTML = data.schedules.map(schedule => {
-                    // Determine if delete button should be disabled
-                    const canDelete = isRootUser || !schedulesLocked;
-                    const deleteBtn = canDelete 
+                    // Determine if edit/delete buttons should be disabled
+                    const canModify = isRootUser || !schedulesLocked;
+                    const editBtn = canModify 
+                        ? '<button class="btn btn-sm btn-secondary" onclick="openEditScheduleModal(\'' + schedule.id + '\')">Edit</button>'
+                        : '<button class="btn btn-sm btn-secondary" disabled title="Schedules locked by administrator">🔒</button>';
+                    const deleteBtn = canModify 
                         ? '<button class="btn btn-sm btn-danger" onclick="removeSchedule(\'' + schedule.id + '\')">Delete</button>'
                         : '<button class="btn btn-sm btn-danger" disabled title="Schedules locked by administrator">🔒</button>';
                     
@@ -714,7 +717,14 @@
                         accountsDisplay = schedule.accounts.join(', ');
                     }
                     
-                    let row = '<tr>' +
+                    // Encode schedule JSON for HTML attribute (escape quotes and special chars)
+                    const scheduleJson = JSON.stringify(schedule)
+                        .replace(/&/g, '&amp;')
+                        .replace(/'/g, '&#39;')
+                        .replace(/"/g, '&quot;');
+                    
+                    let row = '<tr data-schedule-id="' + schedule.id + '" ' +
+                        'data-schedule-json="' + scheduleJson + '">' +
                         '<td>' + accountsDisplay + '</td>' +
                         '<td>' + (schedule.destination_name || schedule.destination) + '</td>' +
                         '<td>' + formatScheduleFrequency(schedule) + '</td>' +
@@ -726,7 +736,7 @@
                         row += '<td><span class="status-badge">' + (schedule.user || 'unknown') + '</span></td>';
                     }
                     
-                    row += '<td>' + deleteBtn + '</td></tr>';
+                    row += '<td><div style="display: flex; gap: 6px;">' + editBtn + deleteBtn + '</div></td></tr>';
                     return row;
                 }).join('');
             } else {
@@ -1419,6 +1429,63 @@
             });
         }
 
+        // ===== EDIT SCHEDULE MODAL EVENT LISTENERS =====
+        
+        // Edit modal: Show/hide day-of-week selector based on frequency
+        const editFrequencySelect = document.getElementById('edit-schedule-frequency');
+        const editDowRow = document.getElementById('edit-schedule-dow-row');
+        const editTimeSelect = document.getElementById('edit-schedule-time');
+        if (editFrequencySelect && editDowRow) {
+            editFrequencySelect.addEventListener('change', function() {
+                const isHourly = editFrequencySelect.value === 'hourly';
+                const isWeekly = editFrequencySelect.value === 'weekly';
+                
+                editDowRow.style.display = isWeekly ? 'flex' : 'none';
+                
+                if (editTimeSelect) {
+                    editTimeSelect.disabled = isHourly;
+                    editTimeSelect.style.opacity = isHourly ? '0.5' : '1';
+                }
+            });
+        }
+        
+        // Edit modal: All accounts checkbox - toggle individual account selection
+        const editAllAccountsCheck = document.getElementById('edit-schedule-all-accounts');
+        if (editAllAccountsCheck) {
+            editAllAccountsCheck.addEventListener('change', function() {
+                toggleEditAccountCheckboxes(this.checked);
+            });
+        }
+        
+        // Edit modal: Select all accounts checkbox
+        const editSelectAllCheck = document.getElementById('edit-select-all-accounts');
+        if (editSelectAllCheck) {
+            editSelectAllCheck.addEventListener('change', function() {
+                const container = document.getElementById('edit-schedule-accounts-container');
+                if (container) {
+                    container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                        if (!cb.disabled) cb.checked = editSelectAllCheck.checked;
+                    });
+                }
+            });
+        }
+        
+        // Edit modal: Save button
+        const btnSaveSchedule = document.getElementById('btn-save-schedule');
+        if (btnSaveSchedule) {
+            btnSaveSchedule.addEventListener('click', saveEditSchedule);
+        }
+        
+        // Edit modal: Close on overlay click
+        const editScheduleModal = document.getElementById('edit-schedule-modal');
+        if (editScheduleModal) {
+            editScheduleModal.addEventListener('click', function(e) {
+                if (e.target === editScheduleModal) {
+                    closeEditScheduleModal();
+                }
+            });
+        }
+
         // Save Settings
         const btnSaveSettings = document.getElementById('btn-save-settings');
         if (btnSaveSettings) {
@@ -2060,6 +2127,181 @@
                 alert('Error: ' + (data.message || 'Unknown error'));
             }
         }).catch(err => { console.error('Error delete_schedule', err); alert('Failed to remove schedule: ' + (err.message || 'Unknown error')); });
+    };
+
+    // ===== EDIT SCHEDULE MODAL =====
+    let editingScheduleId = null;
+    
+    // Open edit schedule modal and populate with current values
+    window.openEditScheduleModal = function(scheduleID) {
+        // Find the schedule row and get the JSON data
+        const row = document.querySelector('tr[data-schedule-id="' + scheduleID + '"]');
+        if (!row) {
+            alert('Schedule not found');
+            return;
+        }
+        
+        let schedule;
+        try {
+            // Decode HTML entities and parse JSON
+            const jsonStr = row.dataset.scheduleJson
+                .replace(/&quot;/g, '"')
+                .replace(/&#39;/g, "'")
+                .replace(/&amp;/g, '&');
+            schedule = JSON.parse(jsonStr);
+            console.log('Loaded schedule for edit:', schedule);
+        } catch (e) {
+            console.error('Failed to parse schedule JSON', e, row.dataset.scheduleJson);
+            alert('Failed to load schedule data');
+            return;
+        }
+        
+        editingScheduleId = scheduleID;
+        document.getElementById('edit-schedule-id').value = scheduleID;
+        
+        // Populate destination dropdown (copy from main destination select)
+        const mainDestSelect = document.getElementById('schedule-destination');
+        const editDestSelect = document.getElementById('edit-schedule-destination');
+        if (mainDestSelect && editDestSelect) {
+            editDestSelect.innerHTML = mainDestSelect.innerHTML;
+            editDestSelect.value = schedule.destination;
+        }
+        
+        // Populate frequency
+        document.getElementById('edit-schedule-frequency').value = schedule.schedule;
+        
+        // Show/hide day of week row based on frequency
+        const dowRow = document.getElementById('edit-schedule-dow-row');
+        if (dowRow) {
+            dowRow.style.display = schedule.schedule === 'weekly' ? 'flex' : 'none';
+        }
+        
+        // Populate retention (ensure it's a number for the input)
+        const retentionInput = document.getElementById('edit-schedule-retention');
+        if (retentionInput) {
+            retentionInput.value = schedule.retention !== undefined ? schedule.retention : 30;
+        }
+        
+        // Populate preferred time (ensure it's a number for the select)
+        const timeSelect = document.getElementById('edit-schedule-time');
+        if (timeSelect) {
+            timeSelect.value = schedule.preferred_time !== undefined ? schedule.preferred_time : 2;
+        }
+        
+        // Populate day of week (ensure it's a number for the select)
+        const dowSelect = document.getElementById('edit-schedule-day-of-week');
+        if (dowSelect) {
+            dowSelect.value = schedule.day_of_week !== undefined ? schedule.day_of_week : 0;
+        }
+        
+        // Handle all accounts checkbox
+        const allAccountsCheck = document.getElementById('edit-schedule-all-accounts');
+        const isAllAccounts = schedule.all_accounts || (schedule.accounts.length === 1 && schedule.accounts[0] === '*');
+        allAccountsCheck.checked = isAllAccounts;
+        
+        // Populate accounts list (copy from main schedule account list)
+        const mainAccountsContainer = document.getElementById('schedule-accounts-container');
+        const editAccountsContainer = document.getElementById('edit-schedule-accounts-container');
+        if (mainAccountsContainer && editAccountsContainer) {
+            // Clone the accounts HTML but update IDs to avoid conflicts
+            editAccountsContainer.innerHTML = mainAccountsContainer.innerHTML
+                .replace(/schedule-acct-/g, 'edit-schedule-acct-');
+            
+            // If not all accounts, check the specific accounts in this schedule
+            if (!isAllAccounts) {
+                schedule.accounts.forEach(acct => {
+                    const checkbox = document.getElementById('edit-schedule-acct-' + acct);
+                    if (checkbox) checkbox.checked = true;
+                });
+            }
+            
+            // Disable/enable checkboxes based on all accounts setting
+            toggleEditAccountCheckboxes(isAllAccounts);
+        }
+        
+        // Show the modal
+        document.getElementById('edit-schedule-modal').classList.add('active');
+    };
+    
+    // Close edit schedule modal
+    window.closeEditScheduleModal = function() {
+        document.getElementById('edit-schedule-modal').classList.remove('active');
+        editingScheduleId = null;
+    };
+    
+    // Toggle account checkboxes enabled state based on "All Accounts" selection
+    function toggleEditAccountCheckboxes(disabled) {
+        const container = document.getElementById('edit-schedule-accounts-container');
+        if (container) {
+            container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.disabled = disabled;
+                if (disabled) cb.checked = false;
+            });
+            container.style.opacity = disabled ? '0.5' : '1';
+        }
+        const selectAllCheck = document.getElementById('edit-select-all-accounts');
+        if (selectAllCheck) {
+            selectAllCheck.disabled = disabled;
+            if (disabled) selectAllCheck.checked = false;
+        }
+    }
+    
+    // Save edited schedule
+    window.saveEditSchedule = function() {
+        const scheduleId = document.getElementById('edit-schedule-id').value;
+        if (!scheduleId) {
+            alert('No schedule selected');
+            return;
+        }
+        
+        const allAccountsChecked = document.getElementById('edit-schedule-all-accounts').checked;
+        const frequency = document.getElementById('edit-schedule-frequency').value;
+        
+        // Build the update payload
+        const payload = {
+            job_id: scheduleId,
+            destination: document.getElementById('edit-schedule-destination').value,
+            schedule: frequency,
+            retention: parseInt(document.getElementById('edit-schedule-retention').value, 10) || 30,
+            preferred_time: parseInt(document.getElementById('edit-schedule-time').value, 10) || 2,
+            day_of_week: parseInt(document.getElementById('edit-schedule-day-of-week').value, 10) || 0,
+            all_accounts: allAccountsChecked
+        };
+        
+        // If not all accounts, gather selected accounts
+        if (!allAccountsChecked) {
+            const selectedAccounts = [];
+            document.querySelectorAll('#edit-schedule-accounts-container input[type="checkbox"]:checked').forEach(cb => {
+                if (cb.value) selectedAccounts.push(cb.value);
+            });
+            
+            if (selectedAccounts.length === 0) {
+                alert('Please select at least one account or enable "All Accounts"');
+                return;
+            }
+            payload.accounts = selectedAccounts;
+        }
+        
+        // Disable save button during request
+        const saveBtn = document.getElementById('btn-save-schedule');
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-sm"></span> Saving...';
+        
+        apiCall('update_schedule', payload).then(data => {
+            if (data.success) {
+                closeEditScheduleModal();
+                loadSchedules();
+                alert('Schedule updated successfully');
+            } else {
+                alert('Error: ' + (data.message || 'Unknown error'));
+            }
+        }).catch(err => {
+            console.error('Error update_schedule', err);
+            alert('Failed to update schedule: ' + (err.message || 'Unknown error'));
+        }).finally(() => {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '💾 Save Changes';
+        });
     };
 
     // ===== DATA BROWSER =====

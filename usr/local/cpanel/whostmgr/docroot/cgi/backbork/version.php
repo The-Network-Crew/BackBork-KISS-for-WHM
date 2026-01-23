@@ -27,10 +27,10 @@
  */
 
 // Plugin Version - follows semantic versioning (MAJOR.MINOR.PATCH)
-define('BACKBORK_VERSION', '1.4.8');
+define('BACKBORK_VERSION', '1.4.9');
 
 // Last Commit - populated by install.sh/updater.sh from git
 // BACKBORK_COMMIT: short hash (e.g., "abc1234") or "dev" if not from git
 // BACKBORK_COMMIT_DATE: timestamp (e.g., "2025-12-22 15:51:05") or empty
-define('BACKBORK_COMMIT', 'unknown');
+define('BACKBORK_COMMIT', 'Snow Leopard');
 define('BACKBORK_COMMIT_DATE', '');

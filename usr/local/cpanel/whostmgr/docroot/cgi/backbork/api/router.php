@@ -501,6 +501,63 @@ switch ($action) {
         echo json_encode($queue->removeFromQueue($jobID, $currentUser, $isRoot));
         break;
     
+    /**
+     * Update an existing schedule
+     * Users can only update their own schedules unless root
+     */
+    case 'update_schedule':
+        $data = backbork_get_request_data();
+        $jobID = isset($data['job_id']) ? $data['job_id'] : '';
+        
+        if (empty($jobID)) {
+            echo json_encode(['success' => false, 'message' => 'Schedule ID required']);
+            break;
+        }
+        
+        // Security: Check if schedules are locked for resellers
+        if (!$isRoot && BackBorkConfig::areSchedulesLocked()) {
+            echo json_encode(['success' => false, 'message' => 'Schedules are locked by administrator']);
+            break;
+        }
+        
+        // Handle "all accounts" mode for account validation
+        $allAccounts = isset($data['all_accounts']) ? (bool)$data['all_accounts'] : false;
+        $updates = [];
+        
+        // Prepare accounts update
+        if (isset($data['accounts']) || $allAccounts) {
+            if ($allAccounts) {
+                $updates['accounts'] = ['*'];
+                $updates['all_accounts'] = true;
+            } else {
+                // Validate user can access requested accounts
+                $accessibleAccounts = $acl->getAccessibleAccounts();
+                $validAccounts = array_intersect(
+                    $data['accounts'] ?? [],
+                    array_column($accessibleAccounts, 'user')
+                );
+                
+                if (empty($validAccounts) && !$allAccounts) {
+                    echo json_encode(['success' => false, 'message' => 'No valid accounts selected']);
+                    break;
+                }
+                $updates['accounts'] = array_values($validAccounts);
+                $updates['all_accounts'] = false;
+            }
+        }
+        
+        // Pass through other update fields
+        if (isset($data['destination'])) $updates['destination'] = $data['destination'];
+        if (isset($data['schedule'])) $updates['schedule'] = $data['schedule'];
+        if (isset($data['retention'])) $updates['retention'] = (int)$data['retention'];
+        if (isset($data['preferred_time'])) $updates['preferred_time'] = (int)$data['preferred_time'];
+        if (isset($data['day_of_week'])) $updates['day_of_week'] = (int)$data['day_of_week'];
+        
+        // Update the schedule
+        $queue = new BackBorkQueue();
+        echo json_encode($queue->updateSchedule($jobID, $updates, $currentUser, $isRoot));
+        break;
+    
     // ========================================================================
     // QUEUE MANAGEMENT
     // ========================================================================

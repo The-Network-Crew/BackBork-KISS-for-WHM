@@ -154,7 +154,7 @@ $scheduleIsRoot = $scheduleAcl->isRoot();     // Check if current user is root
                         <th>Accounts</th>
                         <th>Destination</th>
                         <th>Frequency</th>
-                        <th>Retention</th>
+                        <th>Retain</th>
                         <th>Next Run</th>
                         <?php if ($scheduleIsRoot): ?><th>Owner</th><?php endif; ?>
                         <th>Actions</th>
@@ -164,6 +164,100 @@ $scheduleIsRoot = $scheduleAcl->isRoot();     // Check if current user is root
                     <tr><td colspan="<?php echo $scheduleIsRoot ? '7' : '6'; ?>">Loading schedules...</td></tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- ================================================================
+         EDIT SCHEDULE MODAL
+         Allows editing an existing schedule's settings
+    ================================================================ -->
+    <div id="edit-schedule-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3>✏️ Edit Schedule</h3>
+                <button class="modal-close" onclick="closeEditScheduleModal()">&times;</button>
+            </div>
+            
+            <input type="hidden" id="edit-schedule-id">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="edit-schedule-destination">Backup Storage</label>
+                    <select id="edit-schedule-destination" class="destination-select">
+                        <option value="">Loading destinations...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-schedule-frequency">Schedule Frequency</label>
+                    <select id="edit-schedule-frequency">
+                        <option value="hourly">Hourly</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="edit-schedule-retention">Retained Backups (0 = Unlimited)</label>
+                    <input type="number" id="edit-schedule-retention" value="30" min="0" max="365">
+                </div>
+                <div class="form-group">
+                    <label for="edit-schedule-time">Time of Day to Execute</label>
+                    <select id="edit-schedule-time">
+                        <?php for ($i = 0; $i < 24; $i++): ?>
+                            <option value="<?php echo $i; ?>"><?php echo sprintf('%02d:00', $i); ?></option>
+                        <?php endfor; ?>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Day of Week selector - shown only for Weekly schedules -->
+            <div class="form-row" id="edit-schedule-dow-row" style="display: none;">
+                <div class="form-group">
+                    <label for="edit-schedule-day-of-week">Day of Week</label>
+                    <select id="edit-schedule-day-of-week">
+                        <option value="1">Monday</option>
+                        <option value="2">Tuesday</option>
+                        <option value="3">Wednesday</option>
+                        <option value="4">Thursday</option>
+                        <option value="5">Friday</option>
+                        <option value="6">Saturday</option>
+                        <option value="0">Sunday</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <!-- Spacer for alignment -->
+                </div>
+            </div>
+
+            <!-- Account Selection -->
+            <div class="form-group">
+                <label>Accounts covered by this Schedule</label>
+                <div class="account-list" id="edit-schedule-account-list" style="max-height: 250px;">
+                    <div class="select-all-container" style="display: flex; gap: 24px; flex-wrap: wrap;">
+                        <label style="font-weight: 600; color: var(--primary);">
+                            <input type="checkbox" id="edit-schedule-all-accounts"> 🌐 All Accounts (Dynamic)
+                        </label>
+                        <label>
+                            <input type="checkbox" id="edit-select-all-accounts"> Select All (Listed)
+                        </label>
+                    </div>
+                    <div id="edit-schedule-accounts-container">
+                        <div class="loading-spinner"></div> Loading accounts...
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; margin-top: 20px;">
+                <button type="button" class="btn btn-primary" id="btn-save-schedule">
+                    💾 Save Changes
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeEditScheduleModal()">
+                    Cancel
+                </button>
+            </div>
         </div>
     </div>
 </div>
