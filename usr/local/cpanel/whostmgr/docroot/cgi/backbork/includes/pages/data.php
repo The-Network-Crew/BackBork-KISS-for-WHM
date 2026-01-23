@@ -33,6 +33,15 @@
      - Right panel: Backup files for selected account
 ======================================================================== -->
 <div id="panel-data" class="backbork-panel">
+    <!-- ================================================================
+         DELETIONS LOCKED ALERT
+         Shown to resellers when root has enabled reseller_deletion_locked
+         Hidden by default, visibility controlled by JavaScript
+    ================================================================ -->
+    <div id="deletions-locked-alert" class="alert alert-info" style="display: none;">
+        <strong>🔒 Deletion has been disabled by the Administrator</strong>
+    </div>
+
     <div class="backbork-card">
         <h3>Data Management</h3>
         
@@ -71,6 +80,19 @@
                         <i class="fas fa-archive"></i> Backups
                     </span>
                     <span class="backups-count" id="data-backups-count"></span>
+                </div>
+                <!-- Bulk Actions Toolbar (hidden until backups are loaded) -->
+                <div class="bulk-actions-bar" id="bulk-actions-bar" style="display: none;">
+                    <div class="bulk-select-all">
+                        <label class="bulk-checkbox-label">
+                            <input type="checkbox" id="bulk-select-all" onchange="toggleSelectAllBackups()">
+                            <span>Select All</span>
+                        </label>
+                    </div>
+                    <div class="bulk-selected-count" id="bulk-selected-count">0 selected</div>
+                    <button type="button" class="btn btn-danger btn-sm" id="btn-bulk-delete" onclick="showBulkDeleteModal()" disabled>
+                        <i class="fas fa-trash-alt"></i> Delete Selected
+                    </button>
                 </div>
                 <div class="backups-list" id="data-backups-list">
                     <div class="backups-placeholder">

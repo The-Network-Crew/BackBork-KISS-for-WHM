@@ -154,8 +154,9 @@ switch ($action) {
             $userConfig['_resellers'] = $acl->getResellers();
             $userConfig['_users_with_schedules'] = $acl->getUsersWithSchedules();
         } else {
-            // Non-root users only get schedule lock status
+            // Non-root users only get lock statuses
             $userConfig['_schedules_locked'] = BackBorkConfig::areSchedulesLocked();
+            $userConfig['_deletions_locked'] = BackBorkConfig::areResellerDeletionsLocked();
         }
         echo json_encode($userConfig);
         break;
@@ -749,6 +750,12 @@ switch ($action) {
             break;
         }
         
+        // Security: Check if reseller deletions are locked
+        if (!$isRoot && BackBorkConfig::areResellerDeletionsLocked()) {
+            echo json_encode(['success' => false, 'message' => 'Backup deletion is disabled for resellers']);
+            break;
+        }
+        
         // Get destination info
         $parser = new BackBorkDestinationsParser();
         $destination = $parser->getDestinationByID($destinationID);
@@ -800,6 +807,124 @@ switch ($action) {
             
             echo json_encode($result);
         }
+        break;
+    
+    /**
+     * Bulk delete multiple backup files from a destination
+     * Requires explicit confirmation text and checkbox acceptance
+     * Supports both Local and remote (SFTP/FTP) destinations
+     */
+    case 'bulk_delete_backups':
+        $data = backbork_get_request_data();
+        $destinationID = isset($data['destination']) ? $data['destination'] : '';
+        $backups = isset($data['backups']) ? $data['backups'] : [];
+        $confirmText = isset($data['confirm_text']) ? trim($data['confirm_text']) : '';
+        $acceptUndone = isset($data['accept_undone']) ? (bool)$data['accept_undone'] : false;
+        
+        // Validate required fields
+        if (empty($destinationID) || empty($backups) || !is_array($backups)) {
+            echo json_encode(['success' => false, 'message' => 'Destination and backups array are required']);
+            break;
+        }
+        
+        // Validate confirmation text (must be exact match)
+        $expectedText = 'Yes, I want to bulk delete these backups.';
+        if ($confirmText !== $expectedText) {
+            echo json_encode(['success' => false, 'message' => 'Confirmation text does not match']);
+            break;
+        }
+        
+        // Validate checkbox acceptance
+        if (!$acceptUndone) {
+            echo json_encode(['success' => false, 'message' => 'You must accept that this action cannot be undone']);
+            break;
+        }
+        
+        // Security: Check if reseller deletions are locked
+        if (!$isRoot && BackBorkConfig::areResellerDeletionsLocked()) {
+            echo json_encode(['success' => false, 'message' => 'Backup deletion is disabled for resellers']);
+            break;
+        }
+        
+        // Get destination info
+        $parser = new BackBorkDestinationsParser();
+        $destination = $parser->getDestinationByID($destinationID);
+        
+        if (!$destination) {
+            echo json_encode(['success' => false, 'message' => 'Destination not found']);
+            break;
+        }
+        
+        $destType = strtolower($destination['type'] ?? 'local');
+        $validator = new BackBorkDestinationsValidator();
+        $transport = $validator->getTransportForDestination($destination);
+        
+        $results = ['deleted' => [], 'failed' => []];
+        
+        foreach ($backups as $backup) {
+            $account = isset($backup['account']) ? $backup['account'] : '';
+            $filename = isset($backup['filename']) ? $backup['filename'] : '';
+            $path = isset($backup['path']) ? $backup['path'] : '';
+            
+            if (empty($filename)) continue;
+            
+            // Security: Validate user can access this account's backups
+            if ($account && !$acl->canAccessAccount($account)) {
+                $results['failed'][] = ['filename' => $filename, 'reason' => 'Access denied'];
+                continue;
+            }
+            
+            try {
+                if ($destType === 'local') {
+                    // Local deletion
+                    $basePath = $destination['path'] ?? '/backup';
+                    if ($path && strpos($path, $basePath) === 0) {
+                        $fullPath = $path;
+                    } else {
+                        $accountDir = rtrim($basePath, '/') . '/' . $account . '/' . $filename;
+                        $rootDir = rtrim($basePath, '/') . '/' . $filename;
+                        $fullPath = file_exists($accountDir) ? $accountDir : $rootDir;
+                    }
+                    
+                    if (!file_exists($fullPath)) {
+                        $results['failed'][] = ['filename' => $filename, 'reason' => 'File not found'];
+                        continue;
+                    }
+                    
+                    if (unlink($fullPath)) {
+                        $results['deleted'][] = $filename;
+                    } else {
+                        $results['failed'][] = ['filename' => $filename, 'reason' => 'Delete failed'];
+                    }
+                } else {
+                    // Remote deletion
+                    $remotePath = $path ?: $filename;
+                    $result = $transport->delete($remotePath, $destination);
+                    
+                    if ($result['success']) {
+                        $results['deleted'][] = $filename;
+                    } else {
+                        $results['failed'][] = ['filename' => $filename, 'reason' => $result['message'] ?? 'Delete failed'];
+                    }
+                }
+            } catch (Exception $e) {
+                $results['failed'][] = ['filename' => $filename, 'reason' => $e->getMessage()];
+            }
+        }
+        
+        // Log the bulk deletion
+        $deletedCount = count($results['deleted']);
+        $failedCount = count($results['failed']);
+        BackBorkLog::logEvent($currentUser, 'bulk_delete', [], $failedCount === 0, 
+            "Bulk deleted {$deletedCount} backups" . ($failedCount > 0 ? ", {$failedCount} failed" : "") . " from " . $destination['name'], 
+            BackBorkBootstrap::getRequestor());
+        
+        echo json_encode([
+            'success' => true,
+            'message' => "Deleted {$deletedCount} backup(s)" . ($failedCount > 0 ? ", {$failedCount} failed" : ""),
+            'deleted' => $results['deleted'],
+            'failed' => $results['failed']
+        ]);
         break;
     
     /**

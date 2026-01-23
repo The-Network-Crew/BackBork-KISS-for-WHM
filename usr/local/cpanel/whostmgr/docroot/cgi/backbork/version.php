@@ -27,7 +27,7 @@
  */
 
 // Plugin Version - follows semantic versioning (MAJOR.MINOR.PATCH)
-define('BACKBORK_VERSION', '1.4.7');
+define('BACKBORK_VERSION', '1.4.8');
 
 // Last Commit - populated by install.sh/updater.sh from git
 // BACKBORK_COMMIT: short hash (e.g., "abc1234") or "dev" if not from git

@@ -3,8 +3,21 @@
 # BackBork KISS - Installation Script
 # Disaster Recovery Plugin for WHM
 #
-# Copyright (c) The Network Crew Pty Ltd & Velocity Host Pty Ltd
+# Copyright (C) The Network Crew Pty Ltd & Velocity Host Pty Ltd
 # https://github.com/The-Network-Crew/BackBork-KISS-for-WHM
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 #
 
 set -e
@@ -330,6 +343,10 @@ fi
 
 # Final status
 echo ""
+
+# Get server FQDN for display
+SERVER_FQDN=$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo "your-server")
+
 if [ $ERRORS -eq 0 ]; then
     echo -e "${GREEN}╔═══════════════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║          Installation completed successfully!             ║${NC}"
@@ -339,7 +356,7 @@ if [ $ERRORS -eq 0 ]; then
     echo "  WHM >> Backup >> BackBork KISS"
     echo ""
     echo -e "${BLUE}Or navigate to:${NC}"
-    echo "  https://your-server:2087/cgi/backbork/index.php"
+    echo "  https://${SERVER_FQDN}:2087/cgi/backbork/index.php"
     echo ""
     echo -e "${YELLOW}Important:${NC}"
     echo "  1. Configure SFTP destinations in WHM >> Backup >> Backup Configuration"

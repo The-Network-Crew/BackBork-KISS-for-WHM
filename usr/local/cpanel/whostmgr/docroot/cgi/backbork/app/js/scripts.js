@@ -36,6 +36,7 @@
     let currentLogPage = 1;         // Current page number for log pagination
     let isRootUser = false;         // Whether current user is root (full access)
     let schedulesLocked = false;    // Whether schedules are locked by admin
+    let deletionsLocked = false;    // Whether reseller deletions are locked by admin
     let currentScheduleViewUser = 'all';  // Filter for schedule view (root only)
 
     // =========================================================================
@@ -427,6 +428,12 @@
                     debugModeEl.checked = data._global.debug_mode || false;
                 }
                 
+                // Set reseller deletion lock checkbox (root only)
+                const resellerDeletionEl = document.getElementById('reseller-deletion-locked');
+                if (resellerDeletionEl) {
+                    resellerDeletionEl.checked = data._global.reseller_deletion_locked || false;
+                }
+                
                 // Set cron error alerts checkbox (root only)
                 const cronErrorsEl = document.getElementById('notify-cron-errors');
                 if (cronErrorsEl) {
@@ -462,12 +469,16 @@
                     }
                 }
             } else if (data._schedules_locked !== undefined) {
-                // Non-root user - just get lock status
+                // Non-root user - just get lock statuses
                 isRootUser = false;
                 schedulesLocked = data._schedules_locked;
+                deletionsLocked = data._deletions_locked || false;
                 
                 // Update schedule UI based on lock status
                 updateScheduleLockUI();
+                
+                // Update deletions lock notice
+                updateDeletionsLockUI();
             }
         }).catch(err => {
             console.error('Failed to load config', err);
@@ -635,6 +646,19 @@
                 createBtn.innerHTML = '⏰ Create Schedule';
             }
             if (createCard) createCard.style.opacity = '1';
+        }
+    }
+    
+    // Update Deletions Lock UI (for resellers when locked)
+    function updateDeletionsLockUI() {
+        const lockedAlert = document.getElementById('deletions-locked-alert');
+        
+        if (deletionsLocked && !isRootUser) {
+            // Show locked alert on Data page
+            if (lockedAlert) lockedAlert.style.display = 'block';
+        } else {
+            // Hide locked alert
+            if (lockedAlert) lockedAlert.style.display = 'none';
         }
     }
 
@@ -1589,6 +1613,28 @@
             });
         }
         
+        // Reseller Deletion Locked toggle (root only)
+        const resellerDeletionToggle = document.getElementById('reseller-deletion-locked');
+        if (resellerDeletionToggle) {
+            resellerDeletionToggle.addEventListener('change', function() {
+                const newLockState = this.checked;
+                
+                apiCall('save_global_config', { reseller_deletion_locked: newLockState }).then(data => {
+                    if (data.success) {
+                        alert(newLockState ? 'Resellers can no longer delete backups.' : 'Resellers can now delete backups.');
+                    } else {
+                        // Revert checkbox on failure
+                        resellerDeletionToggle.checked = !newLockState;
+                        alert('Error: ' + (data.message || 'Failed to update lock status'));
+                    }
+                }).catch(err => {
+                    console.error('Error save_global_config', err);
+                    resellerDeletionToggle.checked = !newLockState;
+                    alert('Failed to update lock status: ' + (err.message || 'Unknown error'));
+                });
+            });
+        }
+        
         // Process Queue Now button
         const btnProcessQueue = document.getElementById('btn-process-queue');
         if (btnProcessQueue) {
@@ -2103,10 +2149,16 @@
         const backupsList = document.getElementById('data-backups-list');
         const backupsTitle = document.getElementById('data-backups-title');
         const backupsCount = document.getElementById('data-backups-count');
+        const bulkActionsBar = document.getElementById('bulk-actions-bar');
+        const selectAllCheckbox = document.getElementById('bulk-select-all');
         
         backupsTitle.innerHTML = `<i class="fas fa-archive"></i> ${account}`;
         backupsList.innerHTML = '<div class="backups-loading"><i class="fas fa-spinner fa-spin"></i> Loading backups...</div>';
         backupsCount.textContent = '';
+        
+        // Hide bulk actions until loaded
+        if (bulkActionsBar) bulkActionsBar.style.display = 'none';
+        if (selectAllCheckbox) selectAllCheckbox.checked = false;
         
         apiCall('list_backups', { destination: currentDataDestination, account: account }).then(data => {
             if (data.success && data.backups && data.backups.length > 0) {
@@ -2135,13 +2187,23 @@
                     return tsA.localeCompare(tsB);  // Ascending (oldest first)
                 });
                 
-                backupsList.innerHTML = sorted.map(backup => {
+                // Show bulk actions bar
+                if (bulkActionsBar) bulkActionsBar.style.display = 'flex';
+                updateBulkDeleteState();
+                
+                backupsList.innerHTML = sorted.map((backup, index) => {
                     const filename = backup.file || backup;
                     const path = backup.path || '';
                     const timestamp = formatBackupTimestamp(filename);
                     const sizeStr = backup.size ? formatFileSize(parseInt(backup.size, 10) || 0) : '';
+                    // Escape quotes in data attributes
+                    const escapedFilename = filename.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    const escapedPath = path.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                     return `
-                        <div class="backup-item">
+                        <div class="backup-item" data-filename="${escapedFilename}" data-path="${escapedPath}" data-account="${account}">
+                            <label class="backup-checkbox">
+                                <input type="checkbox" class="backup-select-checkbox" onchange="updateBulkDeleteState()">
+                            </label>
                             <div class="backup-info">
                                 <div class="backup-meta">
                                     <span class="backup-timestamp">${timestamp}</span>
@@ -2150,7 +2212,7 @@
                                 <small class="backup-filename"><code>${filename}</code></small>
                             </div>
                             <div class="backup-actions">
-                                <button class="btn-delete-backup" onclick="showDeleteBackupModal('${account}', '${filename}', '${path}')">
+                                <button class="btn-delete-backup" onclick="showDeleteBackupModal('${account}', '${escapedFilename}', '${escapedPath}')">
                                     <i class="fas fa-trash-alt"></i> Delete
                                 </button>
                             </div>
@@ -2160,6 +2222,8 @@
             } else {
                 backupsCount.textContent = '0 backups';
                 backupsList.innerHTML = '<div class="backups-empty"><i class="fas fa-inbox"></i><p>No backups found for this account</p></div>';
+                // Hide bulk actions bar when no backups
+                if (bulkActionsBar) bulkActionsBar.style.display = 'none';
                 // Clear cached size for this account
                 delete accountSizeCache[account];
                 updateAccountSizeDisplay(account);
@@ -2167,6 +2231,7 @@
         }).catch(err => {
             console.error('Error list_backups', err);
             backupsList.innerHTML = '<div class="backups-empty"><i class="fas fa-exclamation-triangle"></i><p>Error loading backups</p></div>';
+            if (bulkActionsBar) bulkActionsBar.style.display = 'none';
         });
     }
     
@@ -2244,6 +2309,152 @@
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-trash-alt"></i> Delete Backup';
             alert('Failed to delete backup: ' + (err.message || 'Unknown error'));
+        });
+    };
+
+    // =========================================================================
+    // BULK DELETE FUNCTIONS
+    // Multi-select and bulk deletion of backup files
+    // =========================================================================
+    
+    // Toggle select all backups
+    window.toggleSelectAllBackups = function() {
+        const selectAll = document.getElementById('bulk-select-all');
+        const checkboxes = document.querySelectorAll('.backup-select-checkbox');
+        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+        updateBulkDeleteState();
+    };
+    
+    // Update bulk delete button state based on selections
+    window.updateBulkDeleteState = function() {
+        const checkboxes = document.querySelectorAll('.backup-select-checkbox:checked');
+        const allCheckboxes = document.querySelectorAll('.backup-select-checkbox');
+        const selectAll = document.getElementById('bulk-select-all');
+        const countEl = document.getElementById('bulk-selected-count');
+        const deleteBtn = document.getElementById('btn-bulk-delete');
+        
+        const selectedCount = checkboxes.length;
+        
+        // Update count display
+        if (countEl) countEl.textContent = `${selectedCount} selected`;
+        
+        // Update delete button state
+        if (deleteBtn) deleteBtn.disabled = selectedCount === 0;
+        
+        // Update select all checkbox state
+        if (selectAll && allCheckboxes.length > 0) {
+            selectAll.checked = selectedCount === allCheckboxes.length;
+            selectAll.indeterminate = selectedCount > 0 && selectedCount < allCheckboxes.length;
+        }
+    };
+    
+    // Get selected backups data
+    function getSelectedBackups() {
+        const selected = [];
+        document.querySelectorAll('.backup-item').forEach(item => {
+            const checkbox = item.querySelector('.backup-select-checkbox');
+            if (checkbox && checkbox.checked) {
+                selected.push({
+                    account: item.dataset.account || '',
+                    filename: item.dataset.filename || '',
+                    path: item.dataset.path || ''
+                });
+            }
+        });
+        return selected;
+    }
+    
+    // Show bulk delete modal
+    window.showBulkDeleteModal = function() {
+        const selected = getSelectedBackups();
+        if (selected.length === 0) {
+            alert('Please select at least one backup to delete.');
+            return;
+        }
+        
+        // Populate modal
+        document.getElementById('bulk-delete-count').textContent = selected.length;
+        document.getElementById('btn-bulk-delete-count').textContent = selected.length;
+        document.getElementById('bulk-delete-account').textContent = currentDataAccount || 'Multiple';
+        
+        // Populate file list (limit display to first 10 for readability)
+        const fileList = document.getElementById('bulk-delete-file-list');
+        const displayLimit = 10;
+        let listHtml = selected.slice(0, displayLimit).map(b => `<li><code>${b.filename}</code></li>`).join('');
+        if (selected.length > displayLimit) {
+            listHtml += `<li><em>... and ${selected.length - displayLimit} more</em></li>`;
+        }
+        fileList.innerHTML = listHtml;
+        
+        // Reset confirmation inputs
+        document.getElementById('bulk-delete-confirm-text').value = '';
+        document.getElementById('bulk-delete-accept-undone').checked = false;
+        document.getElementById('btn-confirm-bulk-delete').disabled = true;
+        
+        // Show modal
+        document.getElementById('bulk-delete-modal').classList.add('active');
+    };
+    
+    // Validate bulk delete form
+    window.validateBulkDeleteForm = function() {
+        const confirmText = document.getElementById('bulk-delete-confirm-text').value.trim();
+        const acceptUndone = document.getElementById('bulk-delete-accept-undone').checked;
+        const btn = document.getElementById('btn-confirm-bulk-delete');
+        
+        const expectedText = 'Yes, I want to bulk delete these backups.';
+        const isValid = confirmText === expectedText && acceptUndone;
+        
+        btn.disabled = !isValid;
+    };
+    
+    // Confirm bulk delete
+    window.confirmBulkDelete = function() {
+        const selected = getSelectedBackups();
+        const confirmText = document.getElementById('bulk-delete-confirm-text').value.trim();
+        const acceptUndone = document.getElementById('bulk-delete-accept-undone').checked;
+        const btn = document.getElementById('btn-confirm-bulk-delete');
+        
+        if (selected.length === 0) {
+            alert('No backups selected.');
+            return;
+        }
+        
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+        
+        apiCall('bulk_delete_backups', {
+            destination: currentDataDestination,
+            backups: selected,
+            confirm_text: confirmText,
+            accept_undone: acceptUndone
+        }).then(data => {
+            closeModal('bulk-delete-modal');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-trash-alt"></i> Delete <span id="btn-bulk-delete-count">0</span> Backup(s)';
+            
+            if (data.success) {
+                const deletedCount = data.deleted ? data.deleted.length : 0;
+                const failedCount = data.failed ? data.failed.length : 0;
+                
+                let message = `Successfully deleted ${deletedCount} backup(s).`;
+                if (failedCount > 0) {
+                    message += ` ${failedCount} failed to delete.`;
+                }
+                alert(message);
+                
+                // Refresh the backups list
+                if (currentDataAccount) {
+                    loadAccountBackups(currentDataAccount);
+                }
+            } else {
+                alert('Error: ' + (data.message || 'Failed to delete backups'));
+            }
+        }).catch(err => {
+            console.error('Error bulk_delete_backups', err);
+            closeModal('bulk-delete-modal');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-trash-alt"></i> Delete <span id="btn-bulk-delete-count">0</span> Backup(s)';
+            alert('Failed to delete backups: ' + (err.message || 'Unknown error'));
         });
     };
 

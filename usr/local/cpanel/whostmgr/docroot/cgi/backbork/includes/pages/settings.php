@@ -46,31 +46,54 @@ $settingsIsRoot = $settingsAcl->isRoot();     // Check if current user is root
             Where relevant, these settings apply globally. For instance, Resellers cannot Unlock Schedules nor view WHM error_log file.
         </p>
         
-        <div class="checkbox-group">
+        <div class="checkbox-group checkbox-group-admin">
             <!-- Schedule Lock: When enabled, resellers cannot create/edit/delete schedules -->
             <label>
                 <input type="checkbox" id="schedules-locked"> 
-                <strong>🔒 Lock Schedules</strong> — Stop all resellers access!
+                <span class="option-text">
+                    <span class="option-name">🔒 Lock Schedules</span>
+                    <span class="option-desc">Stop resellers editing schedules!</span>
+                </span>
+            </label>
+            <!-- Reseller Deletion Lock: When enabled, resellers cannot delete backups -->
+            <label>
+                <input type="checkbox" id="reseller-deletion-locked"> 
+                <span class="option-text">
+                    <span class="option-name">🔒 Lock Deletions</span>
+                    <span class="option-desc">Stop resellers deleting backups!</span>
+                </span>
             </label>
             <!-- Debug Mode: Enables verbose logging for troubleshooting -->
             <label>
                 <input type="checkbox" id="debug-mode"> 
-                <strong>🐛 Debug Mode</strong> — Verbose to WHM PHP error_log!
+                <span class="option-text">
+                    <span class="option-name">🐛 Debug Mode</span>
+                    <span class="option-desc">Verbose to WHM PHP error_log!</span>
+                </span>
             </label>
             <!-- Cron Error Alerts: Notify root when cron health check fails -->
             <label>
                 <input type="checkbox" id="notify-cron-errors" checked> 
-                <strong>⚠️ Cron Error Alerts</strong> — Notify if cron stops running!
+                <span class="option-text">
+                    <span class="option-name">⚠️ Cron Error Alerts</span>
+                    <span class="option-desc">Notify if cron stops running!</span>
+                </span>
             </label>
             <!-- Queue Failure Alerts: Notify root when queue processing fails -->
             <label>
                 <input type="checkbox" id="notify-queue-failure" checked> 
-                <strong>📋 Queue Failure Alerts</strong> — Notify on any queue errors!
+                <span class="option-text">
+                    <span class="option-name">📋 Queue Failure Alerts</span>
+                    <span class="option-desc">Notify on any queue errors!</span>
+                </span>
             </label>
             <!-- Pruning Alerts: Notify root when backups are pruned by retention policy -->
             <label>
                 <input type="checkbox" id="notify-pruning"> 
-                <strong>🗑️ Pruning Alerts</strong> — Notify when backups are pruned!
+                <span class="option-text">
+                    <span class="option-name">🗑️ Pruning Alerts</span>
+                    <span class="option-desc">Notify when backups are pruned!</span>
+                </span>
             </label>
         </div>
         <div class="alert alert-info" style="margin-top: 15px;">

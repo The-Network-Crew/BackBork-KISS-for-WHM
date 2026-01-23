@@ -74,13 +74,13 @@ if (!defined('BACKBORK_VERSION')) {
         
         <!-- User badge: Shows current WHM user with Root/Reseller indicator -->
         <div class="user-info">
-            <span><?php echo htmlspecialchars($currentUser); ?></span>
+            <span><code><?php echo htmlspecialchars($currentUser); ?></code></span>
             <?php if ($isRoot): ?>
                 <!-- Root users get full access to all features -->
-                <span class="status-badge status-success">ADMIN ☠️</span>
+                <span class="status-badge status-success">ADMIN</span>
             <?php else: ?>
                 <!-- Resellers have ACL-restricted access to their accounts only -->
-                <span class="status-badge status-pending">Reseller</span>
+                <span class="status-badge status-pending">RESELLER</span>
             <?php endif; ?>
         </div>
     </div>
@@ -141,7 +141,7 @@ if (!defined('BACKBORK_VERSION')) {
          FOOTER: Version info, project links, and copyright
     ================================================================ -->
     <div class="backbork-footer">
-        <div><code title="<?php echo (defined('BACKBORK_COMMIT_DATE') && BACKBORK_COMMIT_DATE !== '') ? 'Committed: ' . htmlspecialchars(BACKBORK_COMMIT_DATE) : ''; ?> AEST">v<?php echo BACKBORK_VERSION; ?>-<strong>RC</strong><?php if (defined('BACKBORK_COMMIT')): ?> (Commit: <?php echo (BACKBORK_COMMIT === 'unknown') ? 'Unofficial' : htmlspecialchars(BACKBORK_COMMIT); ?>)<?php endif; ?></code> <strong>&bull; <a href="https://backbork.com" target="_blank">Open-source DR</a> &bull; <a href="https://github.com/The-Network-Crew/BackBork-KISS-for-WHM" target="_blank">GitHub</a> &bull; <a href="https://github.com/The-Network-Crew/BackBork-KISS-for-WHM/issues/new/choose" target="_blank">Bug?</a></strong></div>
+        <div><code title="<?php echo (defined('BACKBORK_COMMIT_DATE') && BACKBORK_COMMIT_DATE !== '') ? 'Committed: ' . htmlspecialchars(BACKBORK_COMMIT_DATE) : ''; ?> AEST"><strong>v<?php echo BACKBORK_VERSION; ?></strong><?php if (defined('BACKBORK_COMMIT')): ?> [<?php echo (BACKBORK_COMMIT === 'Unknown') ? 'Unofficial' : htmlspecialchars(BACKBORK_COMMIT); ?>]<?php endif; ?></code><strong><a href="https://www.gnu.org/licenses/agpl-3.0.txt" target="_blank">AGPLv3</a> &bull; <a href="https://backbork.com" target="_blank">Open-source DR</a> &bull; <a href="https://github.com/The-Network-Crew/BackBork-KISS-for-WHM" target="_blank">Repo</a> &bull; <a href="https://github.com/The-Network-Crew/BackBork-KISS-for-WHM/issues/new/choose" target="_blank">Bug?</a></strong></div>
         <div><strong>&copy; <a href="https://tnc.works" target="_blank">The Network Crew Pty Ltd</a> &amp; <a href="https://velocityhost.com.au" target="_blank">Velocity Host Pty Ltd</a></strong> 💜</div>
     </div>
 </div>
@@ -186,6 +186,43 @@ if (!defined('BACKBORK_VERSION')) {
             <button class="btn btn-secondary" onclick="closeModal('delete-backup-modal')">Cancel</button>
             <button class="btn btn-danger" id="btn-confirm-delete-backup" onclick="confirmDeleteBackup()">
                 <i class="fas fa-trash-alt"></i> Delete Backup
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Delete Confirmation Modal: Shown before bulk deleting multiple backup files -->
+<div id="bulk-delete-modal" class="modal-overlay">
+    <div class="modal-content modal-content-wide">
+        <div class="modal-header">
+            <h3><i class="fas fa-trash-alt"></i> Confirm Bulk Deletion</h3>
+            <button class="modal-close" onclick="closeModal('bulk-delete-modal')">&times;</button>
+        </div>
+        <div class="alert alert-danger">
+            <strong>WARNING:</strong> You are about to permanently delete <strong><span id="bulk-delete-count">0</span> backup(s) </strong>This action cannot ever be undone!
+        </div>
+        <div class="modal-details">
+            <p><strong>Account:</strong> <span id="bulk-delete-account"></span></p>
+            <p><strong>Files to delete:</strong></p>
+            <ul class="bulk-delete-file-list" id="bulk-delete-file-list"></ul>
+        </div>
+        <div class="bulk-delete-confirmation">
+            <div class="form-group">
+                <label for="bulk-delete-confirm-text"><strong>Repeat the following:</strong></label>
+                <code class="confirm-text-display">Yes, I want to bulk delete these backups.</code>
+                <input type="text" id="bulk-delete-confirm-text" class="form-control" placeholder="Type/copy the confirmation text." autocomplete="off" oninput="validateBulkDeleteForm()">
+            </div>
+            <div class="form-group">
+                <label class="bulk-checkbox-label bulk-confirm-checkbox">
+                    <input type="checkbox" id="bulk-delete-accept-undone" onchange="validateBulkDeleteForm()">
+                    <span>I accept that this cannot be undone.</span>
+                </label>
+            </div>
+        </div>
+        <div style="margin-top: 20px; text-align: right;">
+            <button class="btn btn-secondary" onclick="closeModal('bulk-delete-modal')">Cancel</button>
+            <button class="btn btn-danger" id="btn-confirm-bulk-delete" onclick="confirmBulkDelete()" disabled>
+                <i class="fas fa-trash-alt"></i> Delete <span id="btn-bulk-delete-count">0</span> Backup(s)
             </button>
         </div>
     </div>

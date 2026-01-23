@@ -34,6 +34,8 @@ Select your accounts, pick a destination, backup/restore now or queue it. Done.
 | 🌐 **All Accounts Mode** | Dynamic schedules that auto-include new accounts |
 | 🗂️ **Data Management** | Browse backups by account with size tracking |
 | 🔒 **Schedule Lock** | Root can prevent resellers from managing schedules |
+| 🗑️ **Deletion Lock** | Root can prevent resellers from deleting backups |
+| 🗑️ **Bulk Delete** | Select and delete multiple backups at once |
 | 🗑️ **Retention Pruning** | Manifest-based per-schedule pruning (local and remote) |
 | 👁️ **Destination Visibility** | Root can hide destinations from resellers |
 | 🔄 **Destination Status** | View and re-enable disabled WHM destinations |
@@ -234,6 +236,9 @@ Each user gets **separate configuration** — resellers can't peek at root's set
 > [!NOTE]
 > Root can enable **Schedule Lock** in Global Settings to prevent resellers from creating, editing, or deleting schedules. Existing schedules continue to run.
 
+> [!NOTE]
+> Root can enable **Deletion Lock** in Global Settings to prevent resellers from deleting backups. When enabled, resellers see an advisory notice and delete buttons are blocked at the API level.
+
 ---
 
 ## ⚙️ Available Config Options
@@ -241,7 +246,8 @@ Each user gets **separate configuration** — resellers can't peek at root's set
 | Setting | Description |
 |---------|-------------|
 | 🔒 **Schedule Lock** | (Root only) Prevent resellers from managing schedules |
-| 🐛 **Debug Mode** | (Root only) Verbose logging to PHP error_log |
+| �️ **Deletion Lock** | (Root only) Prevent resellers from deleting backups |
+| �🐛 **Debug Mode** | (Root only) Verbose logging to PHP error_log |
 | 📧 **Email** | Where to send notification emails |
 | 💬 **Slack Webhook** | Post alerts to your team's Slack channel |
 | 🔔 **Notify On** | Start, success, and/or failure events |

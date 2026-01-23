@@ -727,7 +727,50 @@ Deletes a specific backup file from a destination.
 > **This action is irreversible.** The backup file is permanently deleted.
 
 > [!NOTE]
-> Only works for Local destinations. Remote backups (SFTP/FTP) must be managed on the remote storage system.
+> Works for both Local and remote (SFTP/FTP) destinations.
+
+> [!NOTE]
+> If `reseller_deletion_locked` is enabled in global config, resellers will receive an "Access denied" error.
+
+#### `POST ?action=bulk_delete_backups`
+
+Deletes multiple backup files at once. Requires explicit confirmation to prevent accidents.
+
+**Request:**
+```json
+{
+  "destination": "local",
+  "backups": [
+    {"account": "user1", "filename": "backup-01.14.2024_02-00-00_user1.tar.gz", "path": "/backup/user1/backup-01.14.2024_02-00-00_user1.tar.gz"},
+    {"account": "user2", "filename": "backup-01.14.2024_02-00-00_user2.tar.gz", "path": "/backup/user2/backup-01.14.2024_02-00-00_user2.tar.gz"}
+  ],
+  "confirm_text": "Yes, I want to bulk delete these backups.",
+  "accept_undone": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Deleted 2 backup(s)",
+  "deleted": ["backup-01.14.2024_02-00-00_user1.tar.gz", "backup-01.14.2024_02-00-00_user2.tar.gz"],
+  "failed": []
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `destination` | Yes | Destination ID |
+| `backups` | Yes | Array of backup objects with account, filename, and path |
+| `confirm_text` | Yes | Must be exactly: `Yes, I want to bulk delete these backups.` |
+| `accept_undone` | Yes | Must be `true` to confirm action cannot be undone |
+
+> [!CAUTION]
+> **This action is irreversible.** All selected backup files are permanently deleted.
+
+> [!NOTE]
+> Works for both Local and remote (SFTP/FTP) destinations. Each backup is validated for ACL access before deletion.
 
 ---
 
@@ -991,6 +1034,7 @@ Gets the global configuration. **Root only.**
   "success": true,
   "config": {
     "schedules_locked": false,
+    "reseller_deletion_locked": false,
     "debug_mode": false,
     "updated_at": "2024-01-15 14:30:00"
   }
@@ -1000,6 +1044,7 @@ Gets the global configuration. **Root only.**
 | Field | Type | Description |
 |-------|------|-------------|
 | `schedules_locked` | bool | When `true`, resellers cannot create, edit, or delete schedules |
+| `reseller_deletion_locked` | bool | When `true`, resellers cannot delete backups |
 | `debug_mode` | bool | When `true`, verbose debug logging is enabled |
 
 > [!WARNING]
@@ -1013,6 +1058,7 @@ Saves global configuration. **Root only.**
 ```json
 {
   "schedules_locked": true,
+  "reseller_deletion_locked": false,
   "debug_mode": false
 }
 ```
@@ -1027,6 +1073,9 @@ Saves global configuration. **Root only.**
 
 > [!TIP]
 > Enable `schedules_locked` to prevent resellers from creating or modifying backup schedules. Existing schedules will continue to run.
+
+> [!TIP]
+> Enable `reseller_deletion_locked` to prevent resellers from deleting backups. They will see an advisory notice on the Data page.
 
 ---
 

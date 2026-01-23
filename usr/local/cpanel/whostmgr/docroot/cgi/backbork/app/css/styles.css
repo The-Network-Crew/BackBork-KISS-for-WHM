@@ -917,6 +917,41 @@
     accent-color: var(--primary);
 }
 
+/* Admin Settings Checkbox Group - 3 columns x 2 rows */
+.checkbox-group-admin {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+.checkbox-group-admin label {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+.checkbox-group-admin .option-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.checkbox-group-admin .option-name {
+    font-weight: 600;
+}
+.checkbox-group-admin .option-desc {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+@media (max-width: 1200px) {
+    .checkbox-group-admin {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 768px) {
+    .checkbox-group-admin {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Modal */
 .modal-overlay {
     display: none;
@@ -1338,7 +1373,6 @@
 
 .backup-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     padding: 12px 15px;
     margin-bottom: 8px;
@@ -1358,6 +1392,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    flex: 1;
 }
 
 .backup-meta {
@@ -1463,6 +1498,160 @@
     font-size: 36px;
     margin-bottom: 10px;
     opacity: 0.4;
+}
+
+/* =========================================================================
+   BULK DELETE STYLES
+   Multi-select checkboxes and bulk action toolbar
+========================================================================= */
+
+/* Bulk Actions Bar */
+.bulk-actions-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 20px;
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.bulk-select-all {
+    display: flex;
+    align-items: center;
+}
+
+.bulk-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    user-select: none;
+}
+
+.bulk-checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--primary);
+}
+
+.bulk-selected-count {
+    font-size: 13px;
+    color: var(--text-muted);
+    padding: 4px 12px;
+    background: var(--gray-100);
+    border-radius: 12px;
+}
+
+#btn-bulk-delete:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Backup Item Checkbox */
+.backup-checkbox {
+    display: flex;
+    align-items: center;
+    padding-right: 12px;
+    cursor: pointer;
+}
+
+.backup-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--primary);
+}
+
+/* Bulk Delete Modal Styles */
+.modal-content-wide {
+    max-width: 550px;
+}
+
+.bulk-delete-file-list {
+    max-height: 150px;
+    overflow-y: auto;
+    margin: 10px 0;
+    padding-left: 20px;
+    font-size: 12px;
+    background: var(--gray-50);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 12px 12px 12px 30px;
+}
+
+.bulk-delete-file-list li {
+    margin-bottom: 4px;
+    color: var(--text-secondary);
+}
+
+.bulk-delete-file-list code {
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+    font-size: 11px;
+    background: var(--gray-100);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.bulk-delete-confirmation {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-light);
+}
+
+.bulk-delete-confirmation .form-group {
+    margin-bottom: 16px;
+}
+
+.bulk-delete-confirmation label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.confirm-text-display {
+    display: block;
+    background: var(--gray-100);
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+    font-size: 13px;
+    color: var(--text-primary);
+    border: 1px solid var(--border-light);
+}
+
+.bulk-delete-confirmation input[type="text"] {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border-default);
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.bulk-delete-confirmation input[type="text"]:focus {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(91, 33, 182, 0.1);
+}
+
+.bulk-confirm-checkbox {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: var(--error-bg);
+    border: 1px solid var(--error);
+    border-radius: 6px;
+}
+
+.bulk-confirm-checkbox span {
+    color: var(--error);
+    font-weight: 600;
 }
 
 /* View Log Link - styled as blue badge */

@@ -180,14 +180,15 @@ class BackBorkConfig {
      */
     public function getGlobalDefaults() {
         return [
-            'debug_mode' => false,           // Verbose logging off by default
-            'schedules_locked' => false,     // Resellers can manage schedules by default
-            'schedules_locked_at' => null,   // Timestamp when lock was enabled
-            'schedules_locked_by' => null,   // User who enabled the lock
-            'root_only_destinations' => [],  // Destination IDs only visible to root
-            'notify_cron_errors' => true,    // Root-only: alert on cron health issues
-            'notify_queue_failure' => true,  // Root-only: alert on queue processing failures
-            'notify_pruning' => true,        // Root-only: alert when backups are pruned
+        'debug_mode' => false,                      // Verbose logging off by default
+            'schedules_locked' => false,            // Resellers can manage schedules by default
+            'schedules_locked_at' => null,          // Timestamp when lock was enabled
+            'schedules_locked_by' => null,          // User who enabled the lock
+            'reseller_deletion_locked' => false,    // Resellers can delete backups by default
+            'root_only_destinations' => [],         // Destination IDs only visible to root
+            'notify_cron_errors' => true,           // Root-only: alert on cron health issues
+            'notify_queue_failure' => true,         // Root-only: alert on queue processing failures
+            'notify_pruning' => true,               // Root-only: alert when backups are pruned
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s')
         ];
@@ -210,6 +211,24 @@ class BackBorkConfig {
         // Parse config and check the flag
         $config = json_decode(file_get_contents(self::GLOBAL_CONFIG_FILE), true);
         return !empty($config['schedules_locked']);
+    }
+    
+    /**
+     * Check if reseller backup deletion is locked
+     * 
+     * When locked, only root can delete backups.
+     * 
+     * @return bool True if reseller deletions are locked
+     */
+    public static function areResellerDeletionsLocked() {
+        // Not locked if config file doesn't exist
+        if (!file_exists(self::GLOBAL_CONFIG_FILE)) {
+            return false;
+        }
+        
+        // Parse config and check the flag
+        $config = json_decode(file_get_contents(self::GLOBAL_CONFIG_FILE), true);
+        return !empty($config['reseller_deletion_locked']);
     }
     
     /**

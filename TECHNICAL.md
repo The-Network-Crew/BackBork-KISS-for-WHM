@@ -737,6 +737,7 @@ The UI polls this file in real-time using `GET ?action=get_restore_log&restore_i
 ```json
 {
   "schedules_locked": false,
+  "reseller_deletion_locked": false,
   "debug_mode": false,
   "updated_at": "2024-01-15 14:30:00"
 }
@@ -745,11 +746,15 @@ The UI polls this file in real-time using `GET ?action=get_restore_log&restore_i
 | Field | Type | Description |
 |-------|------|-------------|
 | `schedules_locked` | bool | Prevent resellers from managing schedules |
+| `reseller_deletion_locked` | bool | Prevent resellers from deleting backups |
 | `debug_mode` | bool | Enable verbose logging to PHP error_log |
 | `updated_at` | string | Last modification time |
 
 > [!NOTE]
 > When `schedules_locked` is enabled, resellers see a lock icon and cannot create, edit, or delete schedules. Existing schedules continue to run.
+
+> [!NOTE]
+> When `reseller_deletion_locked` is enabled, resellers see an advisory notice on the Data page and delete operations are blocked at the API level.
 
 ### 👤 User Config
 
