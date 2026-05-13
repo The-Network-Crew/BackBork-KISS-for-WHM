@@ -155,6 +155,10 @@ $cleaned = $retrieval->cleanupTempFiles(24);  // Delete files older than 24 hour
 if ($cleaned > 0) {
     BackBorkConfig::debugLog('Cleaned up ' . $cleaned . ' old temp files');
 }
+$tokensCleaned = $retrieval->cleanupExpiredTokens();
+if ($tokensCleaned > 0) {
+    BackBorkConfig::debugLog('Cleaned up ' . $tokensCleaned . ' expired download token(s)');
+}
 
 // Log completion
 BackBorkConfig::debugLog('Cron handler finished at ' . date('Y-m-d H:i:s'));

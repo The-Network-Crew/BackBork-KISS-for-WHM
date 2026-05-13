@@ -36,6 +36,7 @@ Select your accounts, pick a destination, backup/restore now or queue it. Done.
 | 🔒 **Schedule Lock** | Root can prevent resellers from managing schedules |
 | 🗑️ **Deletion Lock** | Root can prevent resellers from deleting backups |
 | 🗑️ **Bulk Delete** | Select and delete multiple backups at once |
+| ⬇️ **Download Backups** | Download any backup direct to browser — local files served instantly, remote files staged with a 24-hour expiring token |
 | 🗑️ **Retention Pruning** | Manifest-based per-schedule pruning (local and remote) |
 | 👁️ **Destination Visibility** | Root can hide destinations from resellers |
 | 🔄 **Destination Status** | View and re-enable disabled WHM destinations |
@@ -137,7 +138,7 @@ Monitor your backup jobs in real-time. See what's pending, what's running (with 
 
 ### 🗂️ Data Tab
 
-Browse backup files by account and delete individual backups when needed. Select a destination, pick an account from the A-Z list (with storage size displayed for each), and manage your backup data.
+Browse backup files by account and manage your backup data. Select a destination, pick an account from the A-Z list (with storage size displayed for each), then delete or download individual backups. Local backups download instantly; remote backups are staged to a temporary location and served via a 24-hour expiring download link.
 
 ![BackBork Data Interface](_images/BackBork-Data.png)
 

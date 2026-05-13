@@ -46,6 +46,13 @@ if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQU
     exit;
 }
 
+// Handle serve_download: binary file stream routed through the AppConfig-registered URL
+// (WHM blocks direct requests to api/router.php for root/reseller-all sessions)
+if (isset($_GET['action']) && $_GET['action'] === 'serve_download') {
+    require_once(__DIR__ . '/api/router.php');
+    exit;
+}
+
 // Initialise Bootstrap (handles ACL check)
 if (!BackBorkBootstrap::init()) {
     BackBorkBootstrap::accessDenied();

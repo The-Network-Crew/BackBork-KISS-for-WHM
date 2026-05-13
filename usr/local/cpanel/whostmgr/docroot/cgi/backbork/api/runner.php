@@ -119,6 +119,44 @@ try {
             
             runner_log("Restore job completed");
             break;
+
+        case 'stage_download':
+            runner_log("Background runner started for staged download");
+
+            $token         = isset($jobData['token'])         ? $jobData['token']         : '';
+            $destinationID = isset($jobData['destination'])   ? $jobData['destination']   : '';
+            $backupFile    = isset($jobData['backup_file'])   ? $jobData['backup_file']   : '';
+            $stagedPath    = isset($jobData['staged_path'])   ? $jobData['staged_path']   : '';
+
+            if (empty($token) || empty($destinationID) || empty($backupFile) || empty($stagedPath)) {
+                runner_log("ERROR: Missing required fields for stage_download");
+                break;
+            }
+
+            $retrieval = new BackBorkRetrieval();
+
+            // Fetch the backup from the remote destination into the pre-determined staging path
+            $result = $retrieval->retrieveBackup($destinationID, $backupFile, $stagedPath);
+
+            // Re-read manifest and update status; manifest was written by router.php before job spawn
+            $manifest = $retrieval->readTokenManifest($token);
+            if (!$manifest) {
+                runner_log("ERROR: Token manifest not found or already expired for token " . $token);
+                break;
+            }
+
+            if ($result['success']) {
+                $manifest['status'] = 'ready';
+                runner_log("Staged download ready: " . $stagedPath);
+            } else {
+                $manifest['status'] = 'failed';
+                $manifest['error']  = $result['message'] ?? 'Unknown error during retrieval';
+                runner_log("ERROR: Staged download failed: " . $manifest['error']);
+            }
+
+            $retrieval->writeTokenManifest($manifest);
+            runner_log("Stage download job completed");
+            break;
             
         default:
             runner_log("ERROR: Unknown job type: $type");

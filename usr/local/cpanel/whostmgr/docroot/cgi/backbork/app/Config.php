@@ -82,6 +82,12 @@ class BackBorkConfig {
         if (!is_dir($logsDir)) {
             mkdir($logsDir, 0700, true);
         }
+
+        // Downloads directory - stores staged download token manifests
+        $downloadsDir = self::CONFIG_DIR . '/downloads';
+        if (!is_dir($downloadsDir)) {
+            mkdir($downloadsDir, 0700, true);
+        }
     }
     
     /**

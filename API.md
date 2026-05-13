@@ -702,6 +702,132 @@ Lists backup files for a specific account at a destination.
 > [!NOTE]
 > Results are sorted by modified date (oldest first). Only works for Local destinations.
 
+#### `POST ?action=stage_for_download`
+
+Stages a backup file for browser download. For **local** destinations the original file is referenced immediately and status is `ready`. For **remote** destinations the file is fetched to a temporary staging area by a background job and status is `staging` until ready.
+
+The account is extracted server-side from the backup filename — the client-supplied `account` field is ignored for security.
+
+**Request:**
+```json
+{
+  "destination": "SFTP_BackupServer",
+  "filename": "backup-01.15.2025_02-00-00_someuser.tar.gz",
+  "path": "someuser/backup-01.15.2025_02-00-00_someuser.tar.gz"
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `destination` | Yes | Destination ID |
+| `filename` | Yes | Backup filename (account extracted from this server-side) |
+| `path` | No | Full remote path, used for remote destinations |
+
+**Response (local — ready immediately):**
+```json
+{
+  "success": true,
+  "token": "download_1747094400_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+  "status": "ready",
+  "expires_at": 1747180800
+}
+```
+
+**Response (remote — staging in background):**
+```json
+{
+  "success": true,
+  "token": "download_1747094400_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+  "status": "staging",
+  "expires_at": 1747180800
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `token` | Opaque token for polling and serving. Format: `download_{timestamp}_{hex32}` |
+| `status` | `ready` — serve immediately; `staging` — poll with `get_stage_status` |
+| `expires_at` | Unix timestamp when token expires (24 hours from issue) |
+
+> [!NOTE]
+> Tokens use 128 bits of CSPRNG entropy (`bin2hex(random_bytes(16))`). Even if an attacker knew the URL scheme they could not guess a valid token.
+
+> [!NOTE]
+> For remote destinations, the background runner fetches the file using the same transport layer as restore operations. Poll `get_stage_status` every 2 seconds until status changes from `staging`.
+
+---
+
+#### `GET ?action=get_stage_status`
+
+Polls the status of a staged download token. Ownership is validated on every call.
+
+**Request:**
+```
+?action=get_stage_status&token=download_1747094400_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "token": "download_1747094400_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+  "status": "ready",
+  "expires_at": 1747180800,
+  "filename": "backup-01.15.2025_02-00-00_someuser.tar.gz",
+  "error": null
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `status` | `staging` — still fetching; `ready` — download available; `failed` — retrieval error |
+| `expires_at` | Unix timestamp of token expiry |
+| `filename` | Filename that will be used for the browser download |
+| `error` | Error message when `status` is `failed`, otherwise `null` |
+
+> [!NOTE]
+> Returns a 403 if the token belongs to a different user (unless caller is root).
+
+---
+
+#### `GET ?action=serve_download` — file stream
+
+Streams the staged backup file directly to the browser as a download attachment. This endpoint returns binary data, not JSON.
+
+**Request:**
+```
+?action=serve_download&token=download_1747094400_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
+```
+
+> [!NOTE]
+> This action must be requested via `index.php` (the AppConfig-registered URL), not `api/router.php` directly. WHM blocks direct CGI execution for root/reseller-all sessions unless the file is registered with AppConfig.
+
+**Response:** Binary file stream with headers:
+```
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename="backup-01.15.2025_02-00-00_someuser.tar.gz"
+Content-Length: <bytes>
+Cache-Control: no-store, no-cache, must-revalidate
+```
+
+**Error responses (plain text, not JSON):**
+
+| HTTP Code | Meaning |
+|-----------|---------|
+| 400 | Token format invalid |
+| 403 | Access denied (wrong user or path jail failure) |
+| 404 | Staged file not found (may have been cleaned up by cron) |
+| 409 | File not yet ready (status is `staging` — poll first) |
+| 410 | Token expired or does not exist |
+
+> [!IMPORTANT]
+> The server re-validates token ownership, expiry, and path jail on every `serve_download` call. Constructing a valid token URL without having staged the download yourself will always return 403 or 410.
+
+> [!NOTE]
+> Staged remote files are stored in `/home/backbork_tmp/` and are automatically cleaned up after 24 hours by the cron handler. Download tokens (manifests) are cleaned up separately by `cleanupExpiredTokens()` in the same cron run.
+
+---
+
 #### `POST ?action=delete_backup`
 
 Deletes a specific backup file from a destination.

@@ -227,3 +227,54 @@ if (!defined('BACKBORK_VERSION')) {
         </div>
     </div>
 </div>
+
+<!-- Download Backup Modal: Shown when the user requests a backup download -->
+<div id="download-backup-modal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-download"></i> Download Backup</h3>
+            <button class="modal-close" onclick="closeDownloadModal()">&times;</button>
+        </div>
+
+        <!-- Staging state: shown while remote file is being fetched -->
+        <div id="download-staging-state">
+            <div class="alert alert-info" style="display: flex; align-items: center; gap: 10px;">
+                <span class="loading-spinner-small"></span>
+                <span>Fetching backup from remote storage&hellip; This may take a few minutes for large files.</span>
+            </div>
+            <p style="color: var(--text-secondary); font-size: 13px;">
+                <strong>File:</strong> <code id="download-staging-filename"></code>
+            </p>
+        </div>
+
+        <!-- Ready state: shown once the file is staged and the download link is live -->
+        <div id="download-ready-state" style="display: none;">
+            <div class="alert alert-success">
+                <strong>Ready!</strong> Your backup is staged and ready to download.
+            </div>
+            <p><strong>File:</strong> <code id="download-ready-filename"></code></p>
+            <p style="font-size: 13px; color: var(--text-secondary);">
+                <i class="fas fa-clock"></i> Available until: <span id="download-expires-label"></span>
+            </p>
+            <div style="margin-top: 16px; text-align: center;">
+                <a id="download-save-link" href="#" target="_blank" class="btn btn-primary" style="font-size: 15px; padding: 10px 28px;">
+                    <i class="fas fa-download"></i> Save to Disk &rarr;
+                </a>
+            </div>
+            <p style="font-size: 11px; color: var(--text-muted); margin-top: 12px; text-align: center;">
+                The link above will remain valid until the time shown. You can re-click it without re-staging.
+            </p>
+        </div>
+
+        <!-- Failed state: shown if staging fails -->
+        <div id="download-failed-state" style="display: none;">
+            <div class="alert alert-danger">
+                <strong>Staging failed.</strong> <span id="download-error-message"></span>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px; text-align: right;">
+            <button class="btn btn-secondary" onclick="closeDownloadModal()">Close</button>
+        </div>
+    </div>
+</div>

@@ -96,6 +96,114 @@ $isRoot = $acl->isRoot();
 $requestor = BackBorkLog::getRequestor();
 
 // ============================================================================
+// SERVE DOWNLOAD - Early-exit file streaming
+// Must run before the switch so it can override Content-Type and stream binary.
+// $currentUser / $isRoot / $requestor are available from the context block above.
+// header('Content-Type: application/octet-stream') replaces the JSON header
+// because PHP buffers headers until first output.
+// ============================================================================
+$earlyAction = isset($_GET['action']) ? $_GET['action'] : '';
+if (!$isCLI && $earlyAction === 'serve_download') {
+
+    $token = isset($_GET['token']) ? trim($_GET['token']) : '';
+
+    // Validate token format: download_TIMESTAMP_HEX32
+    if (!preg_match('/^download_\d+_[a-f0-9]{32}$/', $token)) {
+        http_response_code(400);
+        echo 'Invalid download token.';
+        exit;
+    }
+
+    $retrieval = new BackBorkRetrieval();
+    $manifest  = $retrieval->readTokenManifest($token);
+
+    // Token not found, expired, or tampered
+    if (!$manifest) {
+        http_response_code(410);
+        echo 'Download link has expired or does not exist.';
+        exit;
+    }
+
+    // Re-validate ownership: manifest user must match session user, or caller is root
+    $dlUser   = $manifest['user']   ?? '';
+    $dlStatus = $manifest['status'] ?? '';
+
+    if ($dlUser !== $currentUser && !$isRoot) {
+        BackBorkLog::logEvent($currentUser, 'download_denied', [], false,
+            'Token user mismatch: token=' . $token, $requestor);
+        http_response_code(403);
+        echo 'Access denied.';
+        exit;
+    }
+
+    // File must be staged and ready
+    if ($dlStatus !== 'ready') {
+        http_response_code(409);
+        echo 'Backup is not yet ready for download (status: ' . htmlspecialchars($dlStatus) . ').';
+        exit;
+    }
+
+    $stagedPath = $manifest['staged_path'] ?? '';
+    $filename   = $manifest['filename']    ?? 'backup.tar.gz';
+
+    // Path jail: staged files must be inside TEMP_DIR (remote) or the destination's
+    // configured base path (local). realpath() neutralises traversal sequences.
+    $realStaged = realpath($stagedPath);
+    $realTemp   = realpath(BackBorkRetrieval::TEMP_DIR) ?: BackBorkRetrieval::TEMP_DIR;
+
+    $isJailed = false;
+    if ($realStaged && strpos($realStaged, $realTemp . '/') === 0) {
+        // Remote-staged file inside TEMP_DIR — allowed
+        $isJailed = true;
+    } else {
+        // Local destination: verify against the destination's configured base path
+        $dlDestID = $manifest['destination'] ?? '';
+        if ($dlDestID) {
+            $dlParser   = new BackBorkDestinationsParser();
+            $dlDest     = $dlParser->getDestinationByID($dlDestID);
+            $dlBasePath = rtrim($dlDest['path'] ?? '', '/');
+            if ($dlBasePath) {
+                $realBase = realpath($dlBasePath) ?: $dlBasePath;
+                if ($realStaged && strpos($realStaged, $realBase . '/') === 0) {
+                    $isJailed = true;
+                }
+            }
+        }
+    }
+
+    if (!$isJailed || !$realStaged) {
+        BackBorkLog::logEvent($currentUser, 'download_denied', [], false,
+            'Path jail check failed: staged_path=' . $stagedPath . ' token=' . $token, $requestor);
+        http_response_code(403);
+        echo 'Access denied.';
+        exit;
+    }
+
+    // Final existence + regular-file check
+    if (!is_file($realStaged)) {
+        http_response_code(404);
+        echo 'Staged file not found. It may have been cleaned up.';
+        exit;
+    }
+
+    // Log the download before streaming
+    BackBorkLog::logEvent($currentUser, 'download', [$manifest['account'] ?? ''], true,
+        'Download served: ' . $filename, $requestor);
+
+    // Stream the file as a browser download
+    $fileSize = filesize($realStaged);
+    header('Content-Type: application/octet-stream');
+    header('Content-Disposition: attachment; filename="' . addslashes(basename($filename)) . '"');
+    header('Content-Length: ' . $fileSize);
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    header('Pragma: no-cache');
+
+    set_time_limit(0);
+    readfile($realStaged);
+    exit;
+}
+
+// ============================================================================
 // ROUTE REQUEST TO HANDLER
 // ============================================================================
 
@@ -775,7 +883,201 @@ switch ($action) {
         // Return immediately with restore_id so client can start polling
         echo json_encode(['success' => true, 'restore_id' => $restoreID, 'message' => 'Restore started']);
         break;
-    
+
+    // ========================================================================
+    // DATA DOWNLOAD OPERATIONS
+    // ========================================================================
+
+    /**
+     * Stage a backup for browser download.
+     *
+     * For LOCAL destinations the original file is referenced directly — no copy.
+     * For REMOTE destinations the file is fetched into /home/backbork_tmp/ by a
+     * background runner job (same pattern as restore_backup).
+     *
+     * Returns immediately with {success, token, status} where status is either
+     * 'ready' (local — download link can be shown at once) or 'staging' (remote).
+     */
+    case 'stage_for_download':
+        $data          = backbork_get_request_data();
+        $dlDestID      = isset($data['destination']) ? $data['destination'] : '';
+        $dlFilename    = isset($data['filename'])    ? $data['filename']    : '';
+        $dlPath        = isset($data['path'])        ? $data['path']        : '';
+
+        if (empty($dlDestID) || empty($dlFilename)) {
+            echo json_encode(['success' => false, 'message' => 'Destination and filename are required']);
+            break;
+        }
+
+        // Security: extract account from filename — never trust the client-supplied account param
+        $dlAccount = null;
+        if (preg_match(
+            '/^backup-\d{2}\.\d{2}\.\d{4}_\d{2}-\d{2}-\d{2}_([a-z0-9_]+)\.tar(\.gz)?$/i',
+            basename($dlFilename),
+            $dlMatches
+        )) {
+            $dlAccount = $dlMatches[1];
+        }
+
+        if (!$dlAccount) {
+            echo json_encode(['success' => false, 'message' => 'Filename does not match expected backup format']);
+            break;
+        }
+
+        // Security: ACL check against the account extracted from the filename
+        if (!$acl->canAccessAccount($dlAccount)) {
+            BackBorkLog::logEvent($currentUser, 'download_denied', [], false,
+                'ACL denied stage_for_download: account=' . $dlAccount . ' file=' . $dlFilename, $requestor);
+            echo json_encode(['success' => false, 'message' => 'Access denied']);
+            break;
+        }
+
+        // Look up destination
+        $dlParser = new BackBorkDestinationsParser();
+        $dlDest   = $dlParser->getDestinationByID($dlDestID);
+        if (!$dlDest) {
+            echo json_encode(['success' => false, 'message' => 'Destination not found']);
+            break;
+        }
+
+        // Generate a cryptographically-random token
+        $dlToken     = 'download_' . time() . '_' . bin2hex(random_bytes(16));
+        $dlExpiresAt = time() + 86400; // 24 hours
+
+        $dlDestType = strtolower($dlDest['type'] ?? 'local');
+        $retrieval  = new BackBorkRetrieval();
+
+        if ($dlDestType === 'local') {
+            // Local: resolve and jail-check the actual file path server-side
+            $dlBasePath = rtrim($dlDest['path'] ?? '', '/');
+            $dlRealBase = realpath($dlBasePath) ?: $dlBasePath;
+
+            // Build the canonical path from base + account + filename (ignore client path)
+            $dlBuiltPath = $dlRealBase . '/' . $dlAccount . '/' . basename($dlFilename);
+            $dlRealFile  = realpath($dlBuiltPath);
+
+            // Jail: resolved path must start with destination base
+            if (!$dlRealFile || strpos($dlRealFile, $dlRealBase . '/') !== 0 || !is_file($dlRealFile)) {
+                echo json_encode(['success' => false, 'message' => 'Backup file not found']);
+                break;
+            }
+
+            // Write manifest with status=ready — no background job needed
+            $retrieval->writeTokenManifest([
+                'token'       => $dlToken,
+                'user'        => $currentUser,
+                'account'     => $dlAccount,
+                'filename'    => basename($dlFilename),
+                'destination' => $dlDestID,
+                'staged_path' => $dlRealFile,
+                'status'      => 'ready',
+                'expires_at'  => $dlExpiresAt,
+            ]);
+
+            BackBorkLog::logEvent($currentUser, 'download_staged', [$dlAccount], true,
+                'Local download staged: ' . basename($dlFilename), $requestor);
+
+            echo json_encode([
+                'success'    => true,
+                'token'      => $dlToken,
+                'status'     => 'ready',
+                'expires_at' => $dlExpiresAt,
+            ]);
+
+        } else {
+            // Remote: stage into TEMP_DIR; background runner will fetch and update the manifest
+            $dlStagedPath = BackBorkRetrieval::TEMP_DIR . '/' . $dlToken . '.tar.gz';
+
+            // Ensure temp dir exists with secure permissions
+            if (!is_dir(BackBorkRetrieval::TEMP_DIR)) {
+                mkdir(BackBorkRetrieval::TEMP_DIR, 0700, true);
+            }
+
+            // Write manifest with status=staging before spawning the job
+            $retrieval->writeTokenManifest([
+                'token'       => $dlToken,
+                'user'        => $currentUser,
+                'account'     => $dlAccount,
+                'filename'    => basename($dlFilename),
+                'destination' => $dlDestID,
+                'staged_path' => $dlStagedPath,
+                'status'      => 'staging',
+                'expires_at'  => $dlExpiresAt,
+            ]);
+
+            // Write job file for runner.php
+            $dlLogDir  = '/usr/local/cpanel/3rdparty/backbork/logs';
+            $dlJobFile = $dlLogDir . '/' . $dlToken . '.job';
+            file_put_contents($dlJobFile, json_encode([
+                'type'        => 'stage_download',
+                'token'       => $dlToken,
+                'destination' => $dlDestID,
+                'backup_file' => $dlPath ?: $dlFilename,
+                'staged_path' => $dlStagedPath,
+                'user'        => $currentUser,
+                'requestor'   => $requestor,
+                'created_at'  => date('Y-m-d H:i:s'),
+            ]));
+
+            // Spawn background runner — identical pattern to create_backup / restore_backup
+            $phpBin      = '/usr/local/cpanel/3rdparty/bin/php';
+            $runnerScript = __DIR__ . '/runner.php';
+            $dlCmd = escapeshellarg($phpBin) . ' ' . escapeshellarg($runnerScript)
+                   . ' ' . escapeshellarg($dlJobFile) . ' > /dev/null 2>&1 &';
+            exec($dlCmd);
+
+            BackBorkLog::logEvent($currentUser, 'download_staging', [$dlAccount], true,
+                'Remote download staging started: ' . basename($dlFilename), $requestor);
+
+            echo json_encode([
+                'success'    => true,
+                'token'      => $dlToken,
+                'status'     => 'staging',
+                'expires_at' => $dlExpiresAt,
+            ]);
+        }
+        break;
+
+    /**
+     * Poll the status of a staged download token.
+     * Returns status (staging|ready|failed) and expiry timestamp.
+     * Ownership is re-validated on every poll.
+     */
+    case 'get_stage_status':
+        $dlToken = isset($_GET['token']) ? trim($_GET['token']) : '';
+
+        // Validate token format
+        if (!preg_match('/^download_\d+_[a-f0-9]{32}$/', $dlToken)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid token']);
+            break;
+        }
+
+        $retrieval = new BackBorkRetrieval();
+        $manifest  = $retrieval->readTokenManifest($dlToken);
+
+        if (!$manifest) {
+            echo json_encode(['success' => false, 'message' => 'Token not found or expired']);
+            break;
+        }
+
+        // Security: only the owning user or root may poll
+        if ($manifest['user'] !== $currentUser && !$isRoot) {
+            BackBorkLog::logEvent($currentUser, 'download_denied', [], false,
+                'Token ownership mismatch on get_stage_status: token=' . $dlToken, $requestor);
+            echo json_encode(['success' => false, 'message' => 'Access denied']);
+            break;
+        }
+
+        echo json_encode([
+            'success'    => true,
+            'token'      => $dlToken,
+            'status'     => $manifest['status'],
+            'expires_at' => $manifest['expires_at'],
+            'filename'   => $manifest['filename'] ?? '',
+            'error'      => $manifest['error'] ?? null,
+        ]);
+        break;
+
     /**
      * Delete a backup file from a destination
      * Supports both Local and remote (SFTP/FTP) destinations

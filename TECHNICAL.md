@@ -395,6 +395,7 @@ BackBork supports hot database backups using mariadb-backup or mysqlbackup.
   ├── restores/
   ├── completed/
   ├── manifests/
+  ├── downloads/
   └── logs/
 ```
 
@@ -454,6 +455,7 @@ backbork/
 ├── 🛑 cancel/          Cancel request markers for running jobs
 ├── 🔄 restores/        Active restore tracking
 ├── ✅ completed/       Job history
+├── 🔑 downloads/       Expiring download token manifests (chmod 600, 24hr TTL)
 └── 📝 logs/            Operation logs
 ```
 
@@ -967,6 +969,9 @@ All require WHM authentication.
 | `?action=get_backup_accounts` | GET | List accounts with backups at a destination |
 | `?action=list_backups` | GET | List backup files for an account at a destination |
 | `?action=delete_backup` | POST | Delete a backup file (local destinations only) |
+| `?action=stage_for_download` | POST | Stage a backup for browser download; returns token + status (`ready`\|`staging`) |
+| `?action=get_stage_status` | GET | Poll staging status for a download token |
+| `?action=serve_download` | GET | Stream the staged backup file to the browser (file download) |
 | `?action=create_schedule` | POST | Create schedule |
 | `?action=update_schedule` | POST | Update schedule |
 | `?action=delete_schedule` | POST | Delete schedule |
@@ -1095,6 +1100,7 @@ POST /cgi/backbork/index.php?action=perform_update
 | 📁 **File Permissions** | 600/700 for data files |
 | 🚫 **No Stored Creds** | SFTP creds stay in WHM config |
 | 🧹 **Input Sanitization** | Account names validated/escaped |
+| ⬇️ **Download Tokens** | 128-bit CSPRNG tokens; ownership re-checked on serve; path-jailed with `realpath()`; 24-hour expiry enforced server-side |
 
 > [!CAUTION]
 > **Never expose WHM ports (2086/2087) to the public internet.** Always use firewall rules to restrict access to trusted IPs only.

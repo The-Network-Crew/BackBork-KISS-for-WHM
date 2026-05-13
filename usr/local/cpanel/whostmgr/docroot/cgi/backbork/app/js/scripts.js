@@ -2454,6 +2454,9 @@
                                 <small class="backup-filename"><code>${filename}</code></small>
                             </div>
                             <div class="backup-actions">
+                                <button class="btn-download-backup" onclick="showDownloadModal('${account}', '${escapedFilename}', '${escapedPath}')">
+                                    <i class="fas fa-download"></i> Download
+                                </button>
                                 <button class="btn-delete-backup" onclick="showDeleteBackupModal('${account}', '${escapedFilename}', '${escapedPath}')">
                                     <i class="fas fa-trash-alt"></i> Delete
                                 </button>
@@ -2698,6 +2701,115 @@
             btn.innerHTML = '<i class="fas fa-trash-alt"></i> Delete <span id="btn-bulk-delete-count">0</span> Backup(s)';
             alert('Failed to delete backups: ' + (err.message || 'Unknown error'));
         });
+    };
+
+    // =========================================================================
+    // DOWNLOAD BACKUP
+    // Stages a backup for browser download via async token system.
+    // Local destinations: token is issued immediately (status=ready).
+    // Remote destinations: background job fetches file, frontend polls status.
+    // =========================================================================
+
+    let downloadPollInterval = null;
+
+    // Open the download modal and kick off staging
+    window.showDownloadModal = function(account, filename, path) {
+        // Reset modal to staging state
+        document.getElementById('download-staging-state').style.display = 'block';
+        document.getElementById('download-ready-state').style.display   = 'none';
+        document.getElementById('download-failed-state').style.display  = 'none';
+        document.getElementById('download-staging-filename').textContent = filename;
+        document.getElementById('download-save-link').href = '#';
+
+        document.getElementById('download-backup-modal').classList.add('active');
+
+        // Stage the backup
+        apiCall('stage_for_download', {
+            destination: currentDataDestination,
+            filename:    filename,
+            path:        path
+        }).then(data => {
+            if (!data.success) {
+                showDownloadFailed(data.message || 'Failed to initiate staging.');
+                return;
+            }
+            if (data.status === 'ready') {
+                // Local destination — show download link immediately
+                showDownloadReady(data.token, data.filename || filename, data.expires_at);
+            } else {
+                // Remote destination — poll until ready or failed
+                startDownloadPolling(data.token, filename);
+            }
+        }).catch(err => {
+            showDownloadFailed(err.message || 'Request failed.');
+        });
+    };
+
+    // Start polling get_stage_status every 2 seconds
+    function startDownloadPolling(token, filename) {
+        if (downloadPollInterval) clearInterval(downloadPollInterval);
+        downloadPollInterval = setInterval(function() {
+            apiCall('get_stage_status', { token: token }, 'GET').then(data => {
+                if (!data.success) {
+                    clearInterval(downloadPollInterval);
+                    downloadPollInterval = null;
+                    showDownloadFailed(data.message || 'Status check failed.');
+                    return;
+                }
+                if (data.status === 'ready') {
+                    clearInterval(downloadPollInterval);
+                    downloadPollInterval = null;
+                    showDownloadReady(token, data.filename || filename, data.expires_at);
+                } else if (data.status === 'failed') {
+                    clearInterval(downloadPollInterval);
+                    downloadPollInterval = null;
+                    showDownloadFailed(data.error || 'Staging failed on the server.');
+                }
+                // status === 'staging': keep polling
+            }).catch(err => {
+                console.error('Download poll error:', err);
+            });
+        }, 2000);
+    }
+
+    // Show the ready state with the download link
+    function showDownloadReady(token, filename, expiresAt) {
+        document.getElementById('download-staging-state').style.display = 'none';
+        document.getElementById('download-failed-state').style.display  = 'none';
+        document.getElementById('download-ready-state').style.display   = 'block';
+        document.getElementById('download-ready-filename').textContent  = filename;
+
+        // Format expiry as a readable local time
+        const expiryDate = new Date(expiresAt * 1000);
+        const pad = n => String(n).padStart(2, '0');
+        const expiryStr = expiryDate.getFullYear() + '-'
+            + pad(expiryDate.getMonth() + 1) + '-'
+            + pad(expiryDate.getDate())       + ' '
+            + pad(expiryDate.getHours())      + ':'
+            + pad(expiryDate.getMinutes());
+        document.getElementById('download-expires-label').textContent = expiryStr;
+
+        // Set the real download href — plain anchor, browser handles Content-Disposition.
+        // Must go through index.php (the AppConfig-registered URL), not api/router.php directly.
+        document.getElementById('download-save-link').href =
+            'index.php?action=serve_download&token=' + encodeURIComponent(token);
+    }
+
+    // Show the failed state
+    function showDownloadFailed(message) {
+        document.getElementById('download-staging-state').style.display = 'none';
+        document.getElementById('download-ready-state').style.display   = 'none';
+        document.getElementById('download-failed-state').style.display  = 'block';
+        document.getElementById('download-error-message').textContent   = message;
+    }
+
+    // Close download modal and stop any in-flight poll
+    window.closeDownloadModal = function() {
+        if (downloadPollInterval) {
+            clearInterval(downloadPollInterval);
+            downloadPollInterval = null;
+        }
+        document.getElementById('download-backup-modal').classList.remove('active');
     };
 
     // Close Modal

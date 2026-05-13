@@ -29,12 +29,15 @@
 /**
  * Backup file retrieval service.
  * Downloads backup files from remote destinations or locates local backups.
- * Handles verification and cleanup of retrieved files.
+ * Handles verification, cleanup of retrieved files, and staged download tokens.
  */
 class BackBorkRetrieval {
     
     // Temporary directory for staging downloaded backups
     const TEMP_DIR = '/home/backbork_tmp';
+
+    // Directory for staged download token manifests
+    const DOWNLOADS_DIR = '/usr/local/cpanel/3rdparty/backbork/downloads';
     
     /** @var BackBorkDestinationsParser Parses WHM transport destinations */
     private $destinations;
@@ -356,6 +359,79 @@ class BackBorkRetrieval {
             }
         }
         
+        return $deleted;
+    }
+
+    // ========================================================================
+    // STAGED DOWNLOAD TOKEN MANAGEMENT
+    // ========================================================================
+
+    /**
+     * Write a download token manifest to disk.
+     * Token files are stored in DOWNLOADS_DIR and contain all metadata
+     * needed to authorise and serve the download later.
+     *
+     * @param array $data Associative array with keys:
+     *   token, user, account, filename, destination, staged_path,
+     *   status (staging|ready|failed), expires_at, error (optional)
+     */
+    public function writeTokenManifest(array $data) {
+        $dir = self::DOWNLOADS_DIR;
+        if (!is_dir($dir)) {
+            mkdir($dir, 0700, true);
+        }
+        $file = $dir . '/' . $data['token'] . '.json';
+        file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
+        chmod($file, 0600);
+    }
+
+    /**
+     * Read a download token manifest from disk.
+     * Returns null if the file does not exist or the token has expired.
+     *
+     * @param string $token Token string (validated before calling)
+     * @return array|null Manifest data, or null on missing/expired
+     */
+    public function readTokenManifest($token) {
+        $file = self::DOWNLOADS_DIR . '/' . $token . '.json';
+        if (!file_exists($file)) {
+            return null;
+        }
+        $data = json_decode(file_get_contents($file), true);
+        if (!is_array($data)) {
+            return null;
+        }
+        // Treat expired manifests as non-existent
+        if (isset($data['expires_at']) && $data['expires_at'] < time()) {
+            return null;
+        }
+        return $data;
+    }
+
+    /**
+     * Delete all expired token manifest files from the downloads directory.
+     * Called by the cron handler on every run alongside cleanupTempFiles().
+     *
+     * @return int Number of manifest files deleted
+     */
+    public function cleanupExpiredTokens() {
+        $dir = self::DOWNLOADS_DIR;
+        if (!is_dir($dir)) {
+            return 0;
+        }
+        $deleted = 0;
+        foreach (glob($dir . '/*.json') as $file) {
+            if (!is_file($file)) continue;
+            $data = json_decode(file_get_contents($file), true);
+            $expired = !is_array($data)
+                || !isset($data['expires_at'])
+                || $data['expires_at'] < time();
+            if ($expired) {
+                if (unlink($file)) {
+                    $deleted++;
+                }
+            }
+        }
         return $deleted;
     }
 }
